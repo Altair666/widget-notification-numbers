@@ -257,7 +257,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.3.2</footer>
+<footer class="ver-footer">v0.3.3</footer>
 
 <div id="overlay"></div>
 <div id="settingsPanel">
@@ -620,8 +620,9 @@ function computeNextNumber(prefix, year) {
 function computeNextChangeNumber(productId) {
   if (!productId) return '—';
   var max = 0;
+  var pid = Number(productId);
   state.records.forEach(function (r) {
-    if (r.Product === productId) {
+    if (Number(r.Product) === pid) {
       var n = parseInt(String(r.ChangeNumber || '0').replace(/[^0-9]/g, ''), 10);
       if (!isNaN(n) && n > max) max = n;
     }

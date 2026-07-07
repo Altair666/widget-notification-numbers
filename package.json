@@ -2,7 +2,7 @@
   "name": "@gristlabs/notification_numbers",
   "description": "БД номеров извещений",
   "homePage": "https://github.com/gristlabs/notification_numbers",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "grist": {
     "name": "Notification numbers",
     "url": "https://gristlabs.github.io/grist-widget/notification_numbers/index.html",

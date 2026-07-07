@@ -163,7 +163,11 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
     </div>
     <div class="pb">
 
-      <div class="form-row" style="grid-template-columns:120px 1fr">
+      <div class="form-row" style="grid-template-columns:170px 120px 1fr 140px">
+        <div class="form-group">
+          <label class="form-label">№ извещения</label>
+          <input class="form-input formed-num" id="fNumber" readonly value="—">
+        </div>
         <div class="form-group">
           <label class="form-label">Дата выпуска</label>
           <input class="form-input mono" type="date" id="fDate" onchange="onDateOrProductChange()">
@@ -175,20 +179,16 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
             <div class="ac-drop" id="fProductDrop"></div>
           </div>
         </div>
-      </div>
-
-      <div class="form-row" style="grid-template-columns:1fr 170px 140px">
-        <div class="form-group">
-          <label class="form-label">Наименование изделия</label>
-          <input class="form-input" id="fProductName" readonly value="—">
-        </div>
-        <div class="form-group">
-          <label class="form-label">№ извещения</label>
-          <input class="form-input formed-num" id="fNumber" readonly value="—">
-        </div>
         <div class="form-group">
           <label class="form-label">№ изменения</label>
           <input class="form-input formed-num" id="fChangeNumber" readonly value="—">
+        </div>
+      </div>
+
+      <div class="form-row" style="grid-template-columns:1fr">
+        <div class="form-group">
+          <label class="form-label">Наименование изделия</label>
+          <input class="form-input" id="fProductName" readonly value="—">
         </div>
       </div>
 
@@ -257,7 +257,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.4.0</footer>
+<footer class="ver-footer">v0.4.1</footer>
 
 <div id="overlay"></div>
 <div id="settingsPanel">

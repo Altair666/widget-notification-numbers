@@ -2,8 +2,8 @@
   "name": "@gristlabs/notification_numbers",
   "description": "БД номеров извещений",
   "homePage": "https://github.com/gristlabs/notification_numbers",
-  "version": "0.1.0",
-"grist": {
+  "version": "0.2.0",
+  "grist": {
     "name": "Notification numbers",
     "url": "https://gristlabs.github.io/grist-widget/notification_numbers/index.html",
     "widgetId": "@gristlabs/notification_numbers",
@@ -11,7 +11,7 @@
     "accessLevel": "full",
     "renderAfterReady": true,
     "description": "База данных номеров извещений изделий",
-    "authors": [{"name": "Altair666","url": "https://github.com/Altair666"}],
+    "authors": [{"name": "Altair666", "url": "https://github.com/Altair666"}],
     "isGristLabsMaintained": false
   }
 }

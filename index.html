@@ -256,7 +256,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.2.0</footer>
+<footer class="ver-footer">v0.2.1</footer>
 
 <div id="overlay"></div>
 <div id="settingsPanel">
@@ -315,11 +315,11 @@ grist.ready({
   columns: [
     { name: 'Number', title: 'Номер извещения', type: 'Text' },
     { name: 'IssueDate', title: 'Дата выпуска документа', type: 'Date' },
-    { name: 'Product', title: 'Изделие', type: 'Ref' },
+    { name: 'Product', title: 'Изделие', type: 'Ref:Components' },
     { name: 'ProductName', title: 'Наименование изделия', type: 'Text', optional: true },
     { name: 'DocumentDesignations', title: 'Обозначение изменённых документов', type: 'Text' },
     { name: 'ChangeReason', title: 'Причина изменения', type: 'Text' },
-    { name: 'ChangeNumber', title: 'Номер изменения', type: 'Text' }
+    { name: 'ChangeNumber', title: 'Номер изменения', type: 'Int' }
   ],
   requiredAccess: 'full'
 });
@@ -654,7 +654,7 @@ function computeNextChangeNumber(productId) {
       if (!isNaN(n) && n > max) max = n;
     }
   });
-  return String(max + 1);
+  return max + 1;
 }
 
 function onDateOrProductChange() { updateComputedFields(); }

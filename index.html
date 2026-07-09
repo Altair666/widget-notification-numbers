@@ -76,27 +76,26 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 
 /* ── BOM tree ── */
 .tree-layout{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
-.tree-col{flex:1.4;min-width:260px;border:1px solid var(--brd);border-radius:var(--r);background:var(--surf2);max-height:320px;overflow-y:auto}
-.tree-toolbar{display:flex;align-items:center;gap:7px;padding:6px 8px;border-bottom:1px solid var(--brd);background:var(--surf);position:sticky;top:0}
-.tree-toolbar .form-label{margin:0}
+.tree-col{flex:2.2;min-width:420px;border:1px solid var(--brd);border-radius:var(--r);background:var(--surf2);max-height:360px;overflow:auto}
 .tree-empty{padding:16px;text-align:center;color:var(--tx3);font-size:12px}
-.tree-row{display:flex;align-items:center;gap:7px;padding:4px 8px;border-bottom:1px solid var(--brd);cursor:pointer}
-.tree-row:last-child{border-bottom:none}
-.tree-row:hover{background:var(--acc-bg)}
-.tree-row.checked{background:var(--acc-bg)}
-.tree-dn{font-family:var(--mono);font-size:11px;color:var(--acc);white-space:nowrap}
-.tree-name{font-size:11px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
 .cb-box{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1.5px solid var(--brd2);border-radius:3pt;background:#fff;cursor:pointer;transition:all .12s;color:transparent;flex-shrink:0}
 .cb-box:hover{border-color:var(--acc-brd);background:var(--acc-bg)}
 .cb-box.on{border-color:var(--acc);background:var(--acc);color:#fff}
 
-.doctype-col{width:150px;border:1px solid var(--brd);border-radius:var(--r);background:var(--surf2);padding:8px}
-.doctype-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
-.doctype-btn{height:26px;border:1px solid var(--brd);border-radius:4pt;background:#fff;color:var(--tx2);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .12s}
-.doctype-btn:hover{border-color:var(--acc-brd);color:var(--acc)}
-.doctype-btn.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.tree-matrix{border-collapse:collapse;font-size:11px;white-space:nowrap}
+.tree-matrix th,.tree-matrix td{border-bottom:1px solid var(--brd);padding:4px 6px;text-align:center}
+.tree-matrix thead th{position:sticky;top:0;background:var(--surf);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2);border-bottom:2px solid var(--brd);z-index:1}
+.tree-matrix th.tm-name,.tree-matrix td.tm-name{text-align:left;white-space:nowrap;position:sticky;left:0;background:var(--surf);z-index:2}
+.tree-matrix thead th.tm-name{z-index:3}
+.tree-matrix th.tm-shade,.tree-matrix td.tm-shade{background:var(--surf3)}
+.tree-matrix thead th.tm-shade{background:#e0ddd3}
+.tree-matrix tbody tr:hover td:not(.tm-name){background:var(--acc-bg)}
+.tree-matrix tbody tr:last-child td{border-bottom:none}
+.tree-dn{font-family:var(--mono);font-size:11px;color:var(--acc)}
+.tree-name{font-size:11px;color:var(--tx2)}
+.tree-matrix td.tm-cb input{width:14px;height:14px;cursor:pointer;accent-color:var(--acc)}
 
-.gen-col{flex:1;min-width:220px;border:1px solid var(--brd);border-radius:var(--r);background:var(--surf2);display:flex;flex-direction:column;max-height:320px}
+.gen-col{flex:1;min-width:220px;border:1px solid var(--brd);border-radius:var(--r);background:var(--surf2);display:flex;flex-direction:column;max-height:360px}
 .gen-toolbar{padding:8px;border-bottom:1px solid var(--brd);background:var(--surf)}
 .gen-list{overflow-y:auto;flex:1}
 .gen-empty{padding:14px;text-align:center;color:var(--tx3);font-size:11px}
@@ -205,15 +204,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
     <div class="pb">
       <div class="tree-layout">
         <div class="tree-col">
-          <div class="tree-toolbar">
-            <span class="cb-box" id="cbSelectAll" onclick="toggleSelectAll()"></span>
-            <span class="form-label" style="margin:0">Выбрать всё</span>
-          </div>
           <div id="treeBody"><div class="tree-empty">Выберите изделие выше, чтобы увидеть его состав</div></div>
-        </div>
-        <div class="doctype-col">
-          <div class="form-label" style="margin-bottom:6px">Вид документа</div>
-          <div class="doctype-grid" id="doctypeGrid"></div>
         </div>
         <div class="gen-col">
           <div class="gen-toolbar">
@@ -254,7 +245,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.4.3</footer>
+<footer class="ver-footer">v0.5.0</footer>
 
 <div id="overlay"></div>
 <div id="settingsPanel">
@@ -280,7 +271,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 
 // code '' = "Деталь" — a bare part designation with no suffix letters
 var DOC_TYPES = [
-  { code: '', label: 'Деталь' },
+  { code: '', label: 'Д' },
   { code: 'СП', label: 'СП' }, { code: 'СБ', label: 'СБ' }, { code: 'ГЧ', label: 'ГЧ' },
   { code: 'ТУ', label: 'ТУ' }, { code: 'РЭ', label: 'РЭ' }, { code: 'Д1', label: 'Д1' },
   { code: 'ПС', label: 'ПС' }, { code: 'ВЭ', label: 'ВЭ' }, { code: 'ЭТ', label: 'ЭТ' },
@@ -305,9 +296,8 @@ var state = {
 
   selectedProductId: null,
   treeRows: [],          // [{id, depth}]
-  treeChecked: {},        // id -> true
+  cellChecked: {},        // id -> { docTypeCode -> true }
 
-  activeDocTypes: {},     // code -> true
   generatedList: []       // [decimal_number+code, ...]
 };
 
@@ -500,17 +490,47 @@ function collectDescendants(rootId) {
   return rows;
 }
 
+// Default checked doc-type codes per component role in the BOM hierarchy:
+// - the top-level assembly (the selected product itself, depth 0)
+// - a sub-assembly (has children) whose classifier segment is "469515"
+// - any other sub-assembly (has children)
+// - a bottom-level part (no children) — just "Д" (bare part, no suffix)
+var DEFAULT_CODES_TOP = ['СП', 'СБ', 'ГЧ', 'ТУ', 'РЭ', 'Д1', 'ПС', 'ВЭ', 'Э4', 'Э5'];
+var DEFAULT_CODES_ASSEMBLY_469515 = ['СП', 'СБ', 'Э3', 'Э2', 'ВП'];
+var DEFAULT_CODES_ASSEMBLY = ['СП', 'СБ', 'ВП'];
+var DEFAULT_CODES_LEAF = [''];
+
+// decimal_number is formatted as "{org_prefix}.{classifier}.{serial}" —
+// the classifier segment is what "класс 469515" refers to.
+function classifierCodeFor(comp) {
+  var parts = String((comp && comp.decimal_number) || '').split('.');
+  return parts.length >= 2 ? parts[1] : '';
+}
+
+function defaultCodesForRow(row, comp) {
+  if (row.depth === 0) return DEFAULT_CODES_TOP;
+  var hasChildren = (state.childrenByParent[row.id] || []).length > 0;
+  if (!hasChildren) return DEFAULT_CODES_LEAF;
+  if (classifierCodeFor(comp) === '469515') return DEFAULT_CODES_ASSEMBLY_469515;
+  return DEFAULT_CODES_ASSEMBLY;
+}
+
 function rebuildTreeForSelectedProduct() {
   if (!state.selectedProductId || !state.componentsLoaded) {
     state.treeRows = [];
-    state.treeChecked = {};
+    state.cellChecked = {};
     renderTree();
     return;
   }
   state.treeRows = collectDescendants(state.selectedProductId);
-  var checked = {};
-  checked[state.selectedProductId] = true;
-  state.treeChecked = checked;
+  var cells = {};
+  state.treeRows.forEach(function (row) {
+    var comp = state.componentsById[row.id];
+    var rowCells = {};
+    defaultCodesForRow(row, comp).forEach(function (c) { rowCells[c] = true; });
+    cells[row.id] = rowCells;
+  });
+  state.cellChecked = cells;
   renderTree();
 }
 
@@ -520,82 +540,82 @@ function renderTree() {
     body.innerHTML = '<div class="tree-empty">' +
       (state.selectedProductId ? 'У изделия нет вложенных компонентов' : 'Выберите изделие выше, чтобы увидеть его состав') +
       '</div>';
-    updateSelectAllBox();
     return;
   }
-  body.innerHTML = '';
+
+  var table = document.createElement('table');
+  table.className = 'tree-matrix';
+
+  var thead = document.createElement('thead');
+  var headRow = document.createElement('tr');
+  var thName = document.createElement('th');
+  thName.className = 'tm-name'; thName.textContent = 'Обозначение / наименование';
+  headRow.appendChild(thName);
+  DOC_TYPES.forEach(function (dt, i) {
+    var th = document.createElement('th');
+    th.className = 'tm-cb' + (i % 2 === 0 ? ' tm-shade' : '');
+    th.textContent = dt.label;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  var tbody = document.createElement('tbody');
   state.treeRows.forEach(function (row) {
     var comp = state.componentsById[row.id];
     if (!comp) return;
-    var el = document.createElement('div');
-    el.className = 'tree-row' + (state.treeChecked[row.id] ? ' checked' : '');
-    el.style.paddingLeft = (8 + row.depth * 16) + 'px';
+    if (!state.cellChecked[row.id]) state.cellChecked[row.id] = {};
+    var rowCells = state.cellChecked[row.id];
 
-    var cb = document.createElement('span');
-    cb.className = 'cb-box' + (state.treeChecked[row.id] ? ' on' : '');
-    cb.innerHTML = state.treeChecked[row.id] ? checkSvg() : '';
-
+    var tr = document.createElement('tr');
+    var tdName = document.createElement('td');
+    tdName.className = 'tm-name';
+    tdName.style.paddingLeft = (6 + row.depth * 16) + 'px';
     var dn = document.createElement('span');
     dn.className = 'tree-dn'; dn.textContent = comp.decimal_number || '';
-
     var nm = document.createElement('span');
-    nm.className = 'tree-name'; nm.textContent = comp.name || '';
+    nm.className = 'tree-name'; nm.textContent = ' ' + (comp.name || '');
+    tdName.appendChild(dn); tdName.appendChild(nm);
+    tr.appendChild(tdName);
 
-    el.appendChild(cb); el.appendChild(dn); el.appendChild(nm);
-    el.addEventListener('click', function () {
-      state.treeChecked[row.id] = !state.treeChecked[row.id];
-      renderTree();
+    DOC_TYPES.forEach(function (dt, i) {
+      var td = document.createElement('td');
+      td.className = 'tm-cb' + (i % 2 === 0 ? ' tm-shade' : '');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!rowCells[dt.code];
+      cb.addEventListener('change', function () { rowCells[dt.code] = cb.checked; });
+      td.appendChild(cb);
+      tr.appendChild(td);
     });
-    body.appendChild(el);
+
+    tbody.appendChild(tr);
   });
-  updateSelectAllBox();
-}
+  table.appendChild(tbody);
 
-function updateSelectAllBox() {
-  var box = document.getElementById('cbSelectAll');
-  var allChecked = state.treeRows.length > 0 && state.treeRows.every(function (r) { return state.treeChecked[r.id]; });
-  box.className = 'cb-box' + (allChecked ? ' on' : '');
-  box.innerHTML = allChecked ? checkSvg() : '';
+  body.innerHTML = '';
+  body.appendChild(table);
 }
-function toggleSelectAll() {
-  if (!state.treeRows.length) return;
-  var allChecked = state.treeRows.every(function (r) { return state.treeChecked[r.id]; });
-  var checked = {};
-  if (!allChecked) state.treeRows.forEach(function (r) { checked[r.id] = true; });
-  state.treeChecked = checked;
-  renderTree();
-}
-
-// ---------- Document type buttons ----------
-
-var doctypeGrid = document.getElementById('doctypeGrid');
-DOC_TYPES.forEach(function (dt) {
-  var btn = document.createElement('button');
-  btn.className = 'doctype-btn';
-  btn.textContent = dt.label;
-  btn.addEventListener('click', function () {
-    state.activeDocTypes[dt.code] = !state.activeDocTypes[dt.code];
-    btn.classList.toggle('on', !!state.activeDocTypes[dt.code]);
-  });
-  doctypeGrid.appendChild(btn);
-});
 
 // ---------- Generated document list ----------
 
 function generateDocList() {
-  var checkedIds = state.treeRows.map(function (r) { return r.id; }).filter(function (id) { return state.treeChecked[id]; });
-  var codes = DOC_TYPES.map(function (dt) { return dt.code; }).filter(function (c) { return state.activeDocTypes[c]; });
-  if (!checkedIds.length || !codes.length) {
-    window.alert('Отметьте хотя бы один компонент в дереве и хотя бы один вид документа.');
+  var pairs = [];
+  state.treeRows.forEach(function (row) {
+    var comp = state.componentsById[row.id];
+    if (!comp) return;
+    var rowCells = state.cellChecked[row.id] || {};
+    DOC_TYPES.forEach(function (dt) {
+      if (rowCells[dt.code]) pairs.push({ comp: comp, code: dt.code });
+    });
+  });
+  if (!pairs.length) {
+    window.alert('Отметьте хотя бы один документ в таблице состава изделия.');
     return;
   }
-  checkedIds.forEach(function (id) {
-    var comp = state.componentsById[id];
-    if (!comp) return;
-    codes.forEach(function (code) {
-      var designation = (comp.decimal_number || '') + code;
-      if (state.generatedList.indexOf(designation) === -1) state.generatedList.push(designation);
-    });
+  pairs.forEach(function (p) {
+    var designation = (p.comp.decimal_number || '') + p.code;
+    if (state.generatedList.indexOf(designation) === -1) state.generatedList.push(designation);
   });
   renderGenList();
 }
@@ -687,9 +707,7 @@ function resetForm() {
   fProductInput.value = '';
   state.selectedProductId = null;
   document.getElementById('fReason').value = '';
-  state.treeRows = []; state.treeChecked = {};
-  state.activeDocTypes = {};
-  Array.prototype.forEach.call(doctypeGrid.children, function (btn) { btn.classList.remove('on'); });
+  state.treeRows = []; state.cellChecked = {};
   state.generatedList = [];
   renderTree(); renderGenList(); updateComputedFields();
 }

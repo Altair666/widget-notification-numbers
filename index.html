@@ -163,7 +163,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
     </div>
     <div class="pb">
 
-      <div class="form-row" style="grid-template-columns:170px 120px 1fr 140px">
+      <div class="form-row" style="grid-template-columns:170px 120px 1fr 1fr 140px">
         <div class="form-group">
           <label class="form-label">№ извещения</label>
           <input class="form-input formed-num" id="fNumber" readonly value="—">
@@ -179,20 +179,17 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
             <div class="ac-drop" id="fProductDrop"></div>
           </div>
         </div>
+        <div class="form-group" id="fProductNameGroup">
+          <label class="form-label">Наименование изделия</label>
+          <input class="form-input" id="fProductName" readonly value="—">
+        </div>
         <div class="form-group">
           <label class="form-label">№ изменения</label>
           <input class="form-input formed-num" id="fChangeNumber" readonly value="—">
         </div>
       </div>
 
-      <div class="form-row" style="grid-template-columns:1fr">
-        <div class="form-group">
-          <label class="form-label">Наименование изделия</label>
-          <input class="form-input" id="fProductName" readonly value="—">
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-bottom:0">
+      <div class="form-group" id="fReasonGroup" style="margin-bottom:0">
         <label class="form-label">Причина изменения</label>
         <textarea class="form-textarea" id="fReason" placeholder="Комментарий, поясняющий причину изменения документа"></textarea>
       </div>
@@ -201,7 +198,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   </div>
 
   <!-- BOM TREE / DOCUMENT LIST BUILDER -->
-  <div class="panel">
+  <div class="panel" id="bomPanel">
     <div class="ph">
       <span class="ph-title">Состав изделия и формируемые документы</span>
     </div>
@@ -226,7 +223,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
         </div>
       </div>
 
-      <div style="margin-top:12px">
+      <div style="margin-top:12px" id="registerBtnWrap">
         <button class="btn-add" id="btnRegister" onclick="registerNotification()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
           Зарегистрировать извещение
@@ -257,7 +254,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.4.1</footer>
+<footer class="ver-footer">v0.4.2</footer>
 
 <div id="overlay"></div>
 <div id="settingsPanel">
@@ -663,9 +660,18 @@ function computeNextChangeNumber(productId) {
 
 function onDateOrProductChange() { updateComputedFields(); }
 
+function updateProductDependentVisibility() {
+  var show = !!state.selectedProductId;
+  document.getElementById('fProductNameGroup').style.display = show ? '' : 'none';
+  document.getElementById('fReasonGroup').style.display = show ? '' : 'none';
+  document.getElementById('bomPanel').style.display = show ? '' : 'none';
+  document.getElementById('registerBtnWrap').style.display = show ? '' : 'none';
+}
+
 function updateComputedFields() {
   var comp = state.selectedProductId ? state.componentsById[state.selectedProductId] : null;
   document.getElementById('fProductName').value = comp ? comp.name : '—';
+  updateProductDependentVisibility();
 
   var dateVal = document.getElementById('fDate').value;
   var year = dateVal ? dateVal.slice(0, 4) : '';

@@ -223,7 +223,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.6.0</footer>
+<footer class="ver-footer">v0.6.1</footer>
 
 <div id="overlay"></div>
 <div id="settingsPanel">
@@ -879,10 +879,7 @@ function editableRow(r) {
   frag.appendChild(tdNum);
 
   var tdDate = document.createElement('td');
-  var inDate = document.createElement('input');
-  inDate.type = 'date'; inDate.className = 'form-input mono';
-  inDate.value = dateToInputValue(r.IssueDate);
-  tdDate.appendChild(inDate);
+  tdDate.textContent = formatDate(r.IssueDate);
   frag.appendChild(tdDate);
 
   var tdProduct = document.createElement('td');
@@ -891,10 +888,7 @@ function editableRow(r) {
 
   var tdDocs = document.createElement('td');
   tdDocs.className = 'reg-docs';
-  var taDocs = document.createElement('textarea');
-  taDocs.className = 'form-textarea';
-  taDocs.value = String(r.DocumentDesignations || '').trim().split(/\s+/).join('\n');
-  tdDocs.appendChild(taDocs);
+  tdDocs.textContent = String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean).map(formatDesignationToken).join('\n');
   frag.appendChild(tdDocs);
 
   var tdChangeNum = document.createElement('td');
@@ -912,11 +906,7 @@ function editableRow(r) {
   tdActions.className = 'reg-actions';
   var saveBtn = iconButton('cell-edit-btn save', checkSvg(), 'Сохранить');
   saveBtn.addEventListener('click', function () {
-    var fields = {
-      IssueDate: inputValueToDate(inDate.value),
-      DocumentDesignations: taDocs.value.trim().split(/\s+/).join(' '),
-      ChangeReason: taReason.value.trim()
-    };
+    var fields = { ChangeReason: taReason.value.trim() };
     grist.selectedTable.update({ id: r.id, fields: fields }).then(function () {
       editingId = null;
     }).catch(showError);

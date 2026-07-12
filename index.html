@@ -89,7 +89,6 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .prod-name{font-size:12px;color:var(--tx);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prod-count{flex-shrink:0}
 .prod-body{border-top:1px solid var(--brd);background:var(--surf);padding:10px}
-.prod-num{display:inline-flex;align-items:center;font-family:var(--mono);font-size:12px;font-weight:500;background:var(--grn-bg);border:1px solid var(--grn-brd);color:var(--grn);border-radius:var(--r);padding:6px 10px;margin-bottom:10px}
 .prod-footer{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:10px;flex-wrap:wrap}
 .prod-footer .btn-add{width:auto;padding:8px 16px}
 
@@ -151,17 +150,18 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
     </div>
     <div class="pb">
 
-      <div class="form-row" style="grid-template-columns:200px auto;align-items:end">
+      <div class="form-row" style="grid-template-columns:200px 200px auto;align-items:center">
+        <div class="form-group">
+          <label class="form-label">№ извещения</label>
+          <div class="form-input mono formed-num" id="fNoticeNum">—</div>
+        </div>
         <div class="form-group">
           <label class="form-label">Дата выпуска</label>
           <input class="form-input mono" type="date" id="fDate" onchange="renderProductsList()">
         </div>
-        <div class="form-group">
-          <label class="form-label">&nbsp;</label>
-          <button class="icon-btn" id="btnRefreshDocs" title="Обновить подборку из inventory_book">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          </button>
-        </div>
+        <button class="icon-btn" id="btnRefreshDocs" title="Обновить подборку из inventory_book">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
       </div>
 
       <div id="productsList"><div class="gen-empty">Загрузка…</div></div>
@@ -191,7 +191,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.7.2</footer>
+<footer class="ver-footer">v0.7.3</footer>
 
 <div id="overlay"></div>
 <div id="settingsPanel">
@@ -241,6 +241,7 @@ var state = {
   inventoryLoaded: false,
 
   expandedProductIds: {}, // productId -> true, which accordion items are open
+  previewProductId: null, // productId whose № извещения preview is shown at the top of the form
 
   productGroups: []      // [{productId, comp, list: [{designation, version, reason}, ...]}, ...]
 };
@@ -522,6 +523,7 @@ function rebuildAllProductGroups() {
 }
 
 function renderProductsList() {
+  updateNoticeNumberPreview();
   var el = document.getElementById('productsList');
   if (!state.productGroups.length) {
     el.innerHTML = '<div class="gen-empty">Нет изделий с новыми документами для извещения</div>';
@@ -531,6 +533,16 @@ function renderProductsList() {
   state.productGroups.forEach(function (g) {
     el.appendChild(buildProductAccordionItem(g));
   });
+}
+
+function updateNoticeNumberPreview() {
+  var el = document.getElementById('fNoticeNum');
+  if (!el) return;
+  var comp = state.previewProductId != null ? state.componentsById[state.previewProductId] : null;
+  var dateVal = document.getElementById('fDate').value;
+  var year = dateVal ? dateVal.slice(0, 4) : '';
+  var prefix = orgPrefixFor(comp);
+  el.textContent = (comp && prefix && year) ? computeNextNumber(prefix, year) : '—';
 }
 
 function buildProductAccordionItem(g) {
@@ -559,8 +571,12 @@ function buildProductAccordionItem(g) {
   header.appendChild(badge);
 
   header.addEventListener('click', function () {
-    if (state.expandedProductIds[g.productId]) delete state.expandedProductIds[g.productId];
-    else state.expandedProductIds[g.productId] = true;
+    if (state.expandedProductIds[g.productId]) {
+      delete state.expandedProductIds[g.productId];
+    } else {
+      state.expandedProductIds[g.productId] = true;
+      state.previewProductId = g.productId;
+    }
     renderProductsList();
   });
   wrap.appendChild(header);
@@ -573,16 +589,6 @@ function buildProductAccordionItem(g) {
 function buildProductBody(g) {
   var body = document.createElement('div');
   body.className = 'prod-body';
-
-  var dateVal = document.getElementById('fDate').value;
-  var year = dateVal ? dateVal.slice(0, 4) : '';
-  var prefix = orgPrefixFor(g.comp);
-  var numberPreview = (prefix && year) ? computeNextNumber(prefix, year) : '—';
-
-  var numBox = document.createElement('div');
-  numBox.className = 'prod-num';
-  numBox.textContent = '№ извещения: ' + numberPreview;
-  body.appendChild(numBox);
 
   var col = document.createElement('div');
   col.className = 'gen-col';
@@ -727,6 +733,7 @@ function registerNotificationForProduct(g, btn) {
     var newId = (result && typeof result.id !== 'undefined') ? result.id : (Array.isArray(result) ? result[0].id : undefined);
     state.records.push(Object.assign({ id: newId }, fields));
     delete state.expandedProductIds[g.productId];
+    if (state.previewProductId === g.productId) state.previewProductId = null;
     rebuildAllProductGroups();
   }).catch(function (err) {
     showError(err);
@@ -776,7 +783,7 @@ function renderRegistry() {
   table.innerHTML =
     '<thead><tr>' +
     '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th style="text-align:left">Обозначение</th>' +
-    '<th>Версия</th><th>№ изменения</th><th style="text-align:left">Причина изменения</th><th></th>' +
+    '<th>№ изменения</th><th style="text-align:left">Причина изменения</th><th></th>' +
     '</tr></thead><tbody></tbody>';
   var tbody = table.querySelector('tbody');
 
@@ -818,10 +825,6 @@ function renderRegistry() {
       tr.appendChild(tdVer);
 
       if (idx === 0) {
-        var tdChangeNum = document.createElement('td');
-        tdChangeNum.rowSpan = rowSpan; tdChangeNum.textContent = r.ChangeNumber || '';
-        tr.appendChild(tdChangeNum);
-
         var tdReason = document.createElement('td');
         tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.textContent = r.ChangeReason || '';
         tr.appendChild(tdReason);
@@ -864,10 +867,6 @@ function editableRow(r) {
   tdDocs.className = 'reg-docs'; tdDocs.colSpan = 2;
   tdDocs.textContent = String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean).map(formatDesignationToken).join('\n');
   frag.appendChild(tdDocs);
-
-  var tdChangeNum = document.createElement('td');
-  tdChangeNum.textContent = r.ChangeNumber || '';
-  frag.appendChild(tdChangeNum);
 
   var tdReason = document.createElement('td');
   tdReason.className = 'reg-reason';

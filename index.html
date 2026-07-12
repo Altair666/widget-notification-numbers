@@ -196,7 +196,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.7.0</footer>
+<footer class="ver-footer">v0.7.1</footer>
 
 <div id="overlay"></div>
 <div id="settingsPanel">
@@ -781,34 +781,70 @@ function renderRegistry() {
   table.className = 'reg-table';
   table.innerHTML =
     '<thead><tr>' +
-    '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th style="text-align:left">Обозначение документов</th>' +
-    '<th>№ изменения</th><th style="text-align:left">Причина изменения</th><th></th>' +
+    '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th style="text-align:left">Обозначение</th>' +
+    '<th>Версия</th><th>№ изменения</th><th style="text-align:left">Причина изменения</th><th></th>' +
     '</tr></thead><tbody></tbody>';
   var tbody = table.querySelector('tbody');
 
   rows.forEach(function (r) {
-    var tr = document.createElement('tr');
     if (editingId === r.id) {
-      tr.appendChild(editableRow(r));
-    } else {
-      tr.innerHTML =
-        '<td class="reg-dn"></td><td></td><td></td><td class="reg-docs"></td><td></td><td class="reg-reason"></td><td class="reg-actions"></td>';
-      var c = tr.children;
-      c[0].textContent = r.Number || '';
-      c[1].textContent = formatDate(r.IssueDate);
-      c[2].textContent = productLabelForRecord(r);
-      c[3].textContent = String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean).map(formatDesignationToken).join('\n');
-      c[4].textContent = r.ChangeNumber || '';
-      c[5].textContent = r.ChangeReason || '';
-      var actions = c[6];
-      var editBtn = iconButton('cell-edit-btn', pencilSvg(), 'Редактировать');
-      editBtn.addEventListener('click', function () { editingId = r.id; renderRegistry(); });
-      var delBtn = iconButton('cell-edit-btn del', trashSvg(), 'Удалить');
-      delBtn.addEventListener('click', function () { deleteNotification(r); });
-      actions.appendChild(editBtn);
-      actions.appendChild(delBtn);
+      var editTr = document.createElement('tr');
+      editTr.appendChild(editableRow(r));
+      tbody.appendChild(editTr);
+      return;
     }
-    tbody.appendChild(tr);
+
+    var tokens = String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean);
+    var docs = tokens.length ? tokens.map(parseDesignationToken) : [{ designation: '', version: null }];
+    var rowSpan = docs.length;
+
+    docs.forEach(function (doc, idx) {
+      var tr = document.createElement('tr');
+
+      if (idx === 0) {
+        var tdNum = document.createElement('td');
+        tdNum.className = 'reg-dn'; tdNum.rowSpan = rowSpan; tdNum.textContent = r.Number || '';
+        tr.appendChild(tdNum);
+
+        var tdDate = document.createElement('td');
+        tdDate.rowSpan = rowSpan; tdDate.textContent = formatDate(r.IssueDate);
+        tr.appendChild(tdDate);
+
+        var tdProduct = document.createElement('td');
+        tdProduct.rowSpan = rowSpan; tdProduct.textContent = productLabelForRecord(r);
+        tr.appendChild(tdProduct);
+      }
+
+      var tdDn = document.createElement('td');
+      tdDn.className = 'reg-docs'; tdDn.textContent = doc.designation;
+      tr.appendChild(tdDn);
+
+      var tdVer = document.createElement('td');
+      tdVer.textContent = doc.version != null ? doc.version : '';
+      tr.appendChild(tdVer);
+
+      if (idx === 0) {
+        var tdChangeNum = document.createElement('td');
+        tdChangeNum.rowSpan = rowSpan; tdChangeNum.textContent = r.ChangeNumber || '';
+        tr.appendChild(tdChangeNum);
+
+        var tdReason = document.createElement('td');
+        tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.textContent = r.ChangeReason || '';
+        tr.appendChild(tdReason);
+
+        var tdActions = document.createElement('td');
+        tdActions.className = 'reg-actions'; tdActions.rowSpan = rowSpan;
+        var editBtn = iconButton('cell-edit-btn', pencilSvg(), 'Редактировать');
+        editBtn.addEventListener('click', function () { editingId = r.id; renderRegistry(); });
+        var delBtn = iconButton('cell-edit-btn del', trashSvg(), 'Удалить');
+        delBtn.addEventListener('click', function () { deleteNotification(r); });
+        tdActions.appendChild(editBtn);
+        tdActions.appendChild(delBtn);
+        tr.appendChild(tdActions);
+      }
+
+      tbody.appendChild(tr);
+    });
   });
 
   regBody.innerHTML = '';
@@ -831,7 +867,7 @@ function editableRow(r) {
   frag.appendChild(tdProduct);
 
   var tdDocs = document.createElement('td');
-  tdDocs.className = 'reg-docs';
+  tdDocs.className = 'reg-docs'; tdDocs.colSpan = 2;
   tdDocs.textContent = String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean).map(formatDesignationToken).join('\n');
   frag.appendChild(tdDocs);
 

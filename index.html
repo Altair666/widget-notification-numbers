@@ -55,6 +55,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .form-select:focus{border-color:var(--acc)}
 .form-textarea{border:1px solid var(--brd);border-radius:var(--r);background:#f7f7f7;padding:8px 9px;font-family:inherit;font-size:12px;color:var(--tx);outline:none;width:100%;min-height:56px;resize:vertical;transition:border-color .15s,background .15s}
 .form-textarea:focus{border-color:var(--acc);background:var(--surf)}
+.form-textarea[readonly]{background:var(--surf3);color:var(--tx2);cursor:default}
 
 .ac-wrap{position:relative}
 .ac-drop{position:absolute;top:34px;left:0;right:0;background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);z-index:100;max-height:220px;overflow-y:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,.08)}
@@ -74,38 +75,17 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .btn-primary:hover{opacity:.9}
 .btn-primary:disabled{opacity:.35;cursor:not-allowed}
 
-/* ── BOM tree ── */
-.tree-layout{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
-.tree-col{flex:2.2;min-width:480px;border:1px solid var(--brd);border-radius:var(--r);background:var(--surf2);max-height:360px;overflow:auto}
-.tree-empty{padding:16px;text-align:center;color:var(--tx3);font-size:12px}
-.cb-box{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1.5px solid var(--brd2);border-radius:3pt;background:#fff;cursor:pointer;transition:all .12s;color:transparent;flex-shrink:0}
-.cb-box:hover{border-color:var(--acc-brd);background:var(--acc-bg)}
-.cb-box.on{border-color:var(--acc);background:var(--acc);color:#fff}
-
-.tree-matrix{border-collapse:collapse;font-size:12px;white-space:nowrap}
-.tree-matrix th,.tree-matrix td{border-bottom:1px solid var(--brd);padding:4px 6px;text-align:center}
-.tree-matrix thead th{position:sticky;top:0;background:var(--surf);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2);border-bottom:2px solid var(--brd);z-index:1}
-.tree-matrix th.tm-name,.tree-matrix td.tm-name{text-align:left;white-space:nowrap;position:sticky;left:0;background:var(--surf);z-index:2;min-width:260px}
-.tree-matrix thead th.tm-name{z-index:3}
-.tree-matrix th.tm-shade,.tree-matrix td.tm-shade{background:#d9d9d9}
-.tree-matrix tbody tr:hover td:not(.tm-name){background:var(--acc-bg)}
-.tree-matrix tbody tr:last-child td{border-bottom:none}
-.tree-dn{font-family:var(--mono);font-size:12px;color:var(--acc)}
-.tree-name{font-size:12px;color:var(--tx2)}
-.tree-matrix td.tm-cb input{width:14px;height:14px;cursor:pointer;accent-color:var(--acc)}
-
-.gen-transfer{display:flex;align-items:center;justify-content:center;align-self:stretch}
-.btn-transfer{width:30px;height:100%;min-height:100px;border:none;border-radius:var(--r);background:#16b378;color:#fff;font-size:15px;font-weight:600;letter-spacing:.05em;cursor:pointer;transition:opacity .15s,transform .1s}
-.btn-transfer:hover{opacity:.88}
-.btn-transfer:active{transform:scale(.98)}
-
-.gen-col{flex:1;min-width:220px;border:1px solid var(--brd);border-radius:var(--r);background:var(--surf2);display:flex;flex-direction:column;max-height:360px}
-.gen-list{overflow-y:auto;flex:1}
-.gen-empty{padding:14px;text-align:center;color:var(--tx3);font-size:11px}
-.gen-item{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--brd);font-family:var(--mono);font-size:11px;color:var(--tx)}
-.gen-item:last-child{border-bottom:none}
-.gen-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gen-item button{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0 2px}
+/* ── Generated document list (auto-pulled from inventory_book) ── */
+.gen-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.gen-col{border:1px solid var(--brd);border-radius:var(--r);background:var(--surf2);max-height:420px;overflow:auto}
+.gen-empty{padding:16px;text-align:center;color:var(--tx3);font-size:12px}
+.gen-table{width:100%;border-collapse:collapse;font-size:12px}
+.gen-table th{position:sticky;top:0;background:var(--surf);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2);border-bottom:2px solid var(--brd);padding:5px 8px;text-align:center;z-index:1}
+.gen-table td{border-bottom:1px solid var(--brd);padding:5px 8px;text-align:center;vertical-align:middle}
+.gen-table tr:last-child td{border-bottom:none}
+.gen-dn{font-family:var(--mono);font-size:12px;color:var(--acc);text-align:left;white-space:nowrap}
+.gen-reason{text-align:left;white-space:pre-wrap;word-break:break-word}
+.gen-remove-btn{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:14px;line-height:1;padding:0 4px}
 
 #regBody{overflow-x:auto}
 .reg-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -193,25 +173,23 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 
       <div class="form-group" id="fReasonGroup" style="margin-bottom:0">
         <label class="form-label">Причина изменения</label>
-        <textarea class="form-textarea" id="fReason" placeholder="Комментарий, поясняющий причину изменения документа"></textarea>
+        <textarea class="form-textarea" id="fReason" readonly placeholder="Подтягивается автоматически из inventory_book после выбора изделия"></textarea>
       </div>
 
     </div>
   </div>
 
-  <!-- BOM TREE / DOCUMENT LIST BUILDER -->
+  <!-- DOCUMENT LIST (auto-pulled from inventory_book, grouped by reason) -->
   <div class="panel" id="bomPanel">
     <div class="pb">
-      <div class="tree-layout">
-        <div class="tree-col">
-          <div id="treeBody"><div class="tree-empty">Выберите изделие выше, чтобы увидеть его состав</div></div>
-        </div>
-        <div class="gen-transfer">
-          <button class="btn-transfer" onclick="generateDocList()" title="Сформировать список документов">»</button>
-        </div>
-        <div class="gen-col">
-          <div class="gen-list" id="genList"><div class="gen-empty">Формируемый список документации пуст</div></div>
-        </div>
+      <div class="gen-header">
+        <span class="form-label">Документы к извещению (последние версии из inventory_book)</span>
+        <button class="icon-btn" id="btnRefreshDocs" title="Обновить подборку из inventory_book">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
+      <div class="gen-col">
+        <div class="gen-list" id="genList"><div class="gen-empty">Выберите изделие выше</div></div>
       </div>
 
       <div style="margin-top:12px" id="registerBtnWrap">
@@ -245,7 +223,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.5.2</footer>
+<footer class="ver-footer">v0.6.0</footer>
 
 <div id="overlay"></div>
 <div id="settingsPanel">
@@ -259,6 +237,11 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
       <input class="form-input mono" id="sComponentsTable" placeholder="Components">
       <span class="form-hint">Таблица компонентов/изделий с колонками name, primary_use, decimal_number, org_prefix.</span>
     </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label class="form-label">ID таблицы inventory_book</label>
+      <input class="form-input mono" id="sInventoryTable" placeholder="inventory_book">
+      <span class="form-hint">Реестр документов с колонками Product, DocumentDesignation, ChangeNumber, Note.</span>
+    </div>
   </div>
   <div class="panel-footer">
     <button class="btn-secondary" id="settingsCancel">Отмена</button>
@@ -269,20 +252,12 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 <script>
 'use strict';
 
-// code '' = "Деталь" — a bare part designation with no suffix letters
-var DOC_TYPES = [
-  { code: '', label: 'Д' },
-  { code: 'СП', label: 'СП' }, { code: 'СБ', label: 'СБ' }, { code: 'ГЧ', label: 'ГЧ' },
-  { code: 'ТУ', label: 'ТУ' }, { code: 'РЭ', label: 'РЭ' }, { code: 'Д1', label: 'Д1' },
-  { code: 'ПС', label: 'ПС' }, { code: 'ВЭ', label: 'ВЭ' }, { code: 'ЭТ', label: 'ЭТ' },
-  { code: 'ВП', label: 'ВП' }, { code: 'Э5', label: 'Э5' }, { code: 'Э3', label: 'Э3' },
-  { code: 'ПЭ3', label: 'ПЭ3' }, { code: 'Э4', label: 'Э4' }, { code: 'Э2', label: 'Э2' },
-  { code: 'ИС', label: 'ИС' }
-];
 var COMPONENTS_TABLE_CANDIDATES = ['Components', 'components'];
+var INVENTORY_TABLE_CANDIDATES = ['inventory_book', 'Inventory_book', 'InventoryBook', 'Inventory_Book'];
 
 var DEFAULT_OPTIONS = {
-  componentsTableId: ''
+  componentsTableId: '',
+  inventoryTableId: ''
 };
 
 var state = {
@@ -295,11 +270,12 @@ var state = {
   childrenByParent: {}, // parentId -> [id,...]
   componentsLoaded: false,
 
-  selectedProductId: null,
-  treeRows: [],          // [{id, depth}]
-  cellChecked: {},        // id -> { docTypeCode -> true }
+  inventoryRows: [],     // [{id, product, designation, changeNumber, reason}]
+  inventoryLoaded: false,
 
-  generatedList: []       // [decimal_number+code, ...]
+  selectedProductId: null,
+
+  generatedList: []      // [{designation, version, reason}, ...], grouped by reason
 };
 
 function setConn(ok, label) {
@@ -343,6 +319,7 @@ grist.ready({ requiredAccess: 'full' });
 grist.onOptions(function (options) {
   state.options = Object.assign({}, DEFAULT_OPTIONS, options || {});
   loadComponents();
+  loadInventoryBook();
 });
 
 grist.onRecords(function (records) {
@@ -352,6 +329,7 @@ grist.onRecords(function (records) {
   refreshChangeNumberFloorsFromServer();
   updateComputedFields();
   renderRegistry();
+  if (state.selectedProductId) rebuildGeneratedListForSelectedProduct();
 });
 
 function showError(err) {
@@ -373,7 +351,7 @@ function loadComponents() {
   function tryNext(i) {
     if (i >= candidates.length) {
       console.error('Не удалось найти таблицу номенклатуры среди: ' + candidates.join(', '));
-      renderTree();
+      renderGenList();
       return;
     }
     grist.docApi.fetchTable(candidates[i]).then(function (table) {
@@ -402,7 +380,7 @@ function loadComponents() {
       state.componentsById = byId;
       state.childrenByParent = byParent;
       state.componentsLoaded = true;
-      rebuildTreeForSelectedProduct();
+      rebuildGeneratedListForSelectedProduct();
     }).catch(function () { tryNext(i + 1); });
   }
   tryNext(0);
@@ -470,13 +448,83 @@ function selectProduct(id) {
   var comp = state.componentsById[id];
   fProductInput.value = comp ? (comp.decimal_number + ' — ' + comp.name) : ('#' + id);
   fProductDrop.classList.remove('on');
-  state.generatedList = [];
-  renderGenList();
-  rebuildTreeForSelectedProduct();
+  rebuildGeneratedListForSelectedProduct();
   onDateOrProductChange();
 }
 
-// ---------- BOM tree ----------
+// ---------- inventory_book (document registry) ----------
+
+function inventoryTableCandidates() {
+  if (state.options.inventoryTableId) return [state.options.inventoryTableId];
+  return INVENTORY_TABLE_CANDIDATES;
+}
+
+// Grist table ids can differ in case from our hardcoded guesses — resolve
+// against the real list first (same approach as widget-inventory-book's
+// ESPD/ESTD lookup), falling back to the first candidate if listTables()
+// is unavailable or nothing matches.
+function resolveTableId(candidates, allTables) {
+  var lowerAll = (allTables || []).map(function (t) { return String(t).toLowerCase(); });
+  var match = null;
+  candidates.some(function (c) {
+    var idx = lowerAll.indexOf(String(c).toLowerCase());
+    if (idx !== -1) { match = allTables[idx]; return true; }
+    return false;
+  });
+  return match || candidates[0];
+}
+
+// Column ids in the live doc aren't 100% guaranteed to match our guesses —
+// look them up case-insensitively against whatever fetchTable actually returned.
+function makeColGetter(table) {
+  var lowerMap = {};
+  Object.keys(table).forEach(function (k) { lowerMap[k.toLowerCase()] = k; });
+  return function (candidates) {
+    for (var i = 0; i < candidates.length; i++) {
+      var real = lowerMap[candidates[i].toLowerCase()];
+      if (real) return table[real];
+    }
+    return null;
+  };
+}
+
+function loadInventoryBook() {
+  state.inventoryLoaded = false;
+  var candidates = inventoryTableCandidates();
+  var listPromise = grist.docApi.listTables ? grist.docApi.listTables().catch(function () { return null; }) : Promise.resolve(null);
+  listPromise.then(function (allTables) {
+    return grist.docApi.fetchTable(resolveTableId(candidates, allTables));
+  }).then(function (table) {
+    var ids = table.id || [];
+    var col = makeColGetter(table);
+    var products = col(['Product']);
+    var designations = col(['DocumentDesignation']);
+    var changeNumbers = col(['ChangeNumber']);
+    var notes = col(['Note']);
+    var rows = [];
+    ids.forEach(function (id, i) {
+      var designation = designations ? designations[i] : '';
+      if (!designation) return;
+      rows.push({
+        id: id,
+        product: products ? products[i] : null,
+        designation: designation,
+        changeNumber: changeNumbers ? changeNumbers[i] : 0,
+        reason: notes ? (notes[i] || '') : ''
+      });
+    });
+    state.inventoryRows = rows;
+    state.inventoryLoaded = true;
+    if (state.selectedProductId) rebuildGeneratedListForSelectedProduct();
+  }).catch(function (err) {
+    console.error('Не удалось загрузить таблицу inventory_book среди: ' + candidates.join(', '), err);
+    state.inventoryRows = [];
+    state.inventoryLoaded = true;
+    if (state.selectedProductId) rebuildGeneratedListForSelectedProduct();
+  });
+}
+
+// ---------- BOM subtree (scope for pulling documents) ----------
 
 function collectDescendants(rootId) {
   var rows = [];
@@ -491,155 +539,153 @@ function collectDescendants(rootId) {
   return rows;
 }
 
-// Default checked doc-type codes per component role in the BOM hierarchy:
-// - the top-level assembly (the selected product itself, depth 0)
-// - a sub-assembly (has children) whose classifier segment is "469515"
-// - any other sub-assembly (has children)
-// - a bottom-level part (no children) — just "Д" (bare part, no suffix)
-var DEFAULT_CODES_TOP = ['СП', 'СБ', 'ГЧ', 'ТУ', 'РЭ', 'Д1', 'ПС', 'ВЭ', 'Э4', 'Э5'];
-var DEFAULT_CODES_ASSEMBLY_469515 = ['СП', 'СБ', 'Э3', 'ПЭ3', 'Э2', 'ВП'];
-var DEFAULT_CODES_ASSEMBLY = ['СП', 'СБ', 'ВП'];
-var DEFAULT_CODES_LEAF = [''];
+// ---------- Generated document list (auto-pulled from inventory_book) ----------
 
-// decimal_number is formatted as "{org_prefix}.{classifier}.{serial}" —
-// the classifier segment is what "класс 469515" refers to.
-function classifierCodeFor(comp) {
-  var parts = String((comp && comp.decimal_number) || '').split('.');
-  return parts.length >= 2 ? parts[1] : '';
+// A designation already covered by a past notice is stored as "designation#version"
+// inside DocumentDesignations (a bare designation with no "#" is a legacy entry with
+// no tracked version). Parsed back here so a newer version of the same document can
+// still surface even though an older version of it was already notified.
+function parseDesignationToken(tok) {
+  var idx = tok.lastIndexOf('#');
+  if (idx === -1) return { designation: tok, version: null };
+  var verPart = tok.slice(idx + 1);
+  if (!/^\d+$/.test(verPart)) return { designation: tok, version: null };
+  return { designation: tok.slice(0, idx), version: parseInt(verPart, 10) };
 }
 
-function defaultCodesForRow(row, comp) {
-  if (row.depth === 0) return DEFAULT_CODES_TOP;
-  var hasChildren = (state.childrenByParent[row.id] || []).length > 0;
-  if (!hasChildren) return DEFAULT_CODES_LEAF;
-  if (classifierCodeFor(comp) === '469515') return DEFAULT_CODES_ASSEMBLY_469515;
-  return DEFAULT_CODES_ASSEMBLY;
-}
-
-function rebuildTreeForSelectedProduct() {
-  if (!state.selectedProductId || !state.componentsLoaded) {
-    state.treeRows = [];
-    state.cellChecked = {};
-    renderTree();
-    return;
-  }
-  state.treeRows = collectDescendants(state.selectedProductId);
-  var cells = {};
-  state.treeRows.forEach(function (row) {
-    var comp = state.componentsById[row.id];
-    var rowCells = {};
-    defaultCodesForRow(row, comp).forEach(function (c) { rowCells[c] = true; });
-    cells[row.id] = rowCells;
-  });
-  state.cellChecked = cells;
-  renderTree();
-}
-
-function renderTree() {
-  var body = document.getElementById('treeBody');
-  if (!state.treeRows.length) {
-    body.innerHTML = '<div class="tree-empty">' +
-      (state.selectedProductId ? 'У изделия нет вложенных компонентов' : 'Выберите изделие выше, чтобы увидеть его состав') +
-      '</div>';
-    return;
-  }
-
-  var table = document.createElement('table');
-  table.className = 'tree-matrix';
-
-  var thead = document.createElement('thead');
-  var headRow = document.createElement('tr');
-  var thName = document.createElement('th');
-  thName.className = 'tm-name'; thName.textContent = 'Состав изделия и формируемые документы';
-  headRow.appendChild(thName);
-  DOC_TYPES.forEach(function (dt, i) {
-    var th = document.createElement('th');
-    th.className = 'tm-cb' + (i % 2 === 0 ? ' tm-shade' : '');
-    th.textContent = dt.label;
-    headRow.appendChild(th);
-  });
-  thead.appendChild(headRow);
-  table.appendChild(thead);
-
-  var tbody = document.createElement('tbody');
-  state.treeRows.forEach(function (row) {
-    var comp = state.componentsById[row.id];
-    if (!comp) return;
-    if (!state.cellChecked[row.id]) state.cellChecked[row.id] = {};
-    var rowCells = state.cellChecked[row.id];
-
-    var tr = document.createElement('tr');
-    var tdName = document.createElement('td');
-    tdName.className = 'tm-name';
-    tdName.style.paddingLeft = (6 + row.depth * 16) + 'px';
-    var dn = document.createElement('span');
-    dn.className = 'tree-dn'; dn.textContent = comp.decimal_number || '';
-    var nm = document.createElement('span');
-    nm.className = 'tree-name'; nm.textContent = ' ' + (comp.name || '');
-    tdName.appendChild(dn); tdName.appendChild(nm);
-    tr.appendChild(tdName);
-
-    DOC_TYPES.forEach(function (dt, i) {
-      var td = document.createElement('td');
-      td.className = 'tm-cb' + (i % 2 === 0 ? ' tm-shade' : '');
-      var cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = !!rowCells[dt.code];
-      cb.addEventListener('change', function () { rowCells[dt.code] = cb.checked; });
-      td.appendChild(cb);
-      tr.appendChild(td);
-    });
-
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-
-  body.innerHTML = '';
-  body.appendChild(table);
-}
-
-// ---------- Generated document list ----------
-
-function generateDocList() {
-  var pairs = [];
-  state.treeRows.forEach(function (row) {
-    var comp = state.componentsById[row.id];
-    if (!comp) return;
-    var rowCells = state.cellChecked[row.id] || {};
-    DOC_TYPES.forEach(function (dt) {
-      if (rowCells[dt.code]) pairs.push({ comp: comp, code: dt.code });
+function buildAlreadyNotifiedKeys() {
+  var keys = {};
+  state.records.forEach(function (r) {
+    String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean).forEach(function (tok) {
+      var parsed = parseDesignationToken(tok);
+      if (parsed.version != null) keys[parsed.designation + '#' + parsed.version] = true;
     });
   });
-  if (!pairs.length) {
-    window.alert('Отметьте хотя бы один документ в таблице состава изделия.');
+  return keys;
+}
+
+// Groups items by reason, preserving the order each distinct reason first
+// appears in — used both to lay out the merged-cell table and to build the
+// combined ChangeReason text.
+function reasonGroups(list) {
+  var order = [];
+  var map = {};
+  list.forEach(function (item) {
+    var key = item.reason || '';
+    if (!map[key]) { map[key] = { reason: item.reason || '', items: [] }; order.push(map[key]); }
+    map[key].items.push(item);
+  });
+  return order;
+}
+
+function computeChangeReasonText(list) {
+  var groups = reasonGroups(list);
+  if (!groups.length) return '';
+  if (groups.length === 1) return groups[0].reason;
+  return groups.map(function (g) {
+    return (g.reason || '(без причины)') + ' — ' + g.items.map(function (i) { return i.designation; }).join(', ');
+  }).join('\n');
+}
+
+function rebuildGeneratedListForSelectedProduct() {
+  if (!state.selectedProductId || !state.componentsLoaded || !state.inventoryLoaded) {
+    state.generatedList = [];
+    renderGenList();
     return;
   }
-  pairs.forEach(function (p) {
-    var designation = (p.comp.decimal_number || '') + p.code;
-    if (state.generatedList.indexOf(designation) === -1) state.generatedList.push(designation);
+
+  var subtreeIds = {};
+  collectDescendants(state.selectedProductId).forEach(function (row) { subtreeIds[row.id] = true; });
+
+  var notifiedKeys = buildAlreadyNotifiedKeys();
+
+  // latest version per designation among inventory_book rows in scope
+  var latestByDesignation = {};
+  state.inventoryRows.forEach(function (row) {
+    if (!subtreeIds[row.product]) return;
+    var existing = latestByDesignation[row.designation];
+    if (!existing || Number(row.changeNumber) > Number(existing.changeNumber)) {
+      latestByDesignation[row.designation] = row;
+    }
   });
+
+  var candidates = Object.keys(latestByDesignation).map(function (k) { return latestByDesignation[k]; })
+    .filter(function (row) {
+      var key = row.designation + '#' + (row.changeNumber != null ? row.changeNumber : '');
+      return !notifiedKeys[key];
+    })
+    .sort(function (a, b) { return String(a.designation).localeCompare(String(b.designation), undefined, { numeric: true }); })
+    .map(function (row) { return { designation: row.designation, version: row.changeNumber, reason: row.reason || '' }; });
+
+  var flat = [];
+  reasonGroups(candidates).forEach(function (g) { g.items.forEach(function (i) { flat.push(i); }); });
+  state.generatedList = flat;
   renderGenList();
 }
 
 function renderGenList() {
   var el = document.getElementById('genList');
+  var reasonField = document.getElementById('fReason');
+  if (reasonField) reasonField.value = computeChangeReasonText(state.generatedList);
+
   if (!state.generatedList.length) {
-    el.innerHTML = '<div class="gen-empty">Формируемый список документации пуст</div>';
+    el.innerHTML = '<div class="gen-empty">' +
+      (state.selectedProductId ? 'Нет новых документов для извещения' : 'Выберите изделие выше') +
+      '</div>';
     return;
   }
+
+  var table = document.createElement('table');
+  table.className = 'gen-table';
+  table.innerHTML = '<thead><tr><th style="text-align:left">Обозначение</th><th>Версия</th><th style="text-align:left">Причина изменения</th><th></th></tr></thead><tbody></tbody>';
+  var tbody = table.querySelector('tbody');
+
+  var i = 0;
+  while (i < state.generatedList.length) {
+    var runReason = state.generatedList[i].reason;
+    var runEnd = i;
+    while (runEnd + 1 < state.generatedList.length && state.generatedList[runEnd + 1].reason === runReason) runEnd++;
+    var runLen = runEnd - i + 1;
+
+    for (var j = i; j <= runEnd; j++) {
+      (function (idx) {
+        var row = state.generatedList[idx];
+        var tr = document.createElement('tr');
+
+        var tdDn = document.createElement('td');
+        tdDn.className = 'gen-dn'; tdDn.textContent = row.designation;
+        tr.appendChild(tdDn);
+
+        var tdVer = document.createElement('td');
+        tdVer.textContent = (row.version != null ? row.version : '');
+        tr.appendChild(tdVer);
+
+        if (idx === i) {
+          var tdReason = document.createElement('td');
+          tdReason.className = 'gen-reason';
+          tdReason.rowSpan = runLen;
+          tdReason.textContent = row.reason || '—';
+          tr.appendChild(tdReason);
+        }
+
+        var tdRemove = document.createElement('td');
+        var btn = document.createElement('button');
+        btn.className = 'gen-remove-btn'; btn.textContent = '×'; btn.title = 'Убрать';
+        btn.addEventListener('click', function () {
+          state.generatedList.splice(idx, 1);
+          renderGenList();
+        });
+        tdRemove.appendChild(btn);
+        tr.appendChild(tdRemove);
+
+        tbody.appendChild(tr);
+      })(j);
+    }
+    i = runEnd + 1;
+  }
+
   el.innerHTML = '';
-  state.generatedList.forEach(function (designation, idx) {
-    var row = document.createElement('div');
-    row.className = 'gen-item';
-    var span = document.createElement('span'); span.textContent = designation;
-    var btn = document.createElement('button'); btn.textContent = '×'; btn.title = 'Убрать';
-    btn.addEventListener('click', function () {
-      state.generatedList.splice(idx, 1);
-      renderGenList();
-    });
-    row.appendChild(span); row.appendChild(btn);
-    el.appendChild(row);
-  });
+  el.appendChild(table);
 }
 
 // ---------- Date helpers ----------
@@ -707,10 +753,8 @@ function resetForm() {
   document.getElementById('fDate').value = dateToInputValue(Math.floor(Date.now() / 1000));
   fProductInput.value = '';
   state.selectedProductId = null;
-  document.getElementById('fReason').value = '';
-  state.treeRows = []; state.cellChecked = {};
   state.generatedList = [];
-  renderTree(); renderGenList(); updateComputedFields();
+  renderGenList(); updateComputedFields();
 }
 resetForm();
 
@@ -722,15 +766,17 @@ function registerNotification() {
   var year = dateVal ? dateVal.slice(0, 4) : '';
   var prefix = orgPrefixFor(comp);
   if (!prefix || !year) { window.alert('Не удалось определить префикс организации или год выпуска.'); return; }
-  if (!state.generatedList.length) { window.alert('Сформируйте список изменённых документов.'); return; }
+  if (!state.generatedList.length) { window.alert('Нет документов для извещения — все версии из inventory_book уже отражены в реестре.'); return; }
 
   var fields = {
     Number: computeNextNumber(prefix, year),
     IssueDate: inputValueToDate(dateVal),
     Product: state.selectedProductId,
     ProductName: comp ? comp.name : '',
-    DocumentDesignations: state.generatedList.join(' '),
-    ChangeReason: document.getElementById('fReason').value.trim(),
+    DocumentDesignations: state.generatedList.map(function (item) {
+      return item.designation + (item.version != null ? '#' + item.version : '');
+    }).join(' '),
+    ChangeReason: computeChangeReasonText(state.generatedList),
     ChangeNumber: computeNextChangeNumber(state.selectedProductId)
   };
   // claim the ChangeNumber immediately, before the async write even starts —
@@ -761,6 +807,11 @@ function productLabelForRecord(r) {
   if (r.ProductName) return r.ProductName;
   var comp = state.componentsById[r.Product];
   return comp ? comp.name : (r.Product ? ('#' + r.Product) : '');
+}
+
+function formatDesignationToken(tok) {
+  var parsed = parseDesignationToken(tok);
+  return parsed.version != null ? (parsed.designation + ' (изм. ' + parsed.version + ')') : parsed.designation;
 }
 
 function renderRegistry() {
@@ -802,7 +853,7 @@ function renderRegistry() {
       c[0].textContent = r.Number || '';
       c[1].textContent = formatDate(r.IssueDate);
       c[2].textContent = productLabelForRecord(r);
-      c[3].textContent = String(r.DocumentDesignations || '').trim().split(/\s+/).join('\n');
+      c[3].textContent = String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean).map(formatDesignationToken).join('\n');
       c[4].textContent = r.ChangeNumber || '';
       c[5].textContent = r.ChangeReason || '';
       var actions = c[6];
@@ -900,14 +951,17 @@ function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="
 var overlay = document.getElementById('overlay');
 var settingsPanel = document.getElementById('settingsPanel');
 var sComponentsTable = document.getElementById('sComponentsTable');
+var sInventoryTable = document.getElementById('sInventoryTable');
 
 document.getElementById('btnSettings').addEventListener('click', openSettings);
 document.getElementById('settingsClose').addEventListener('click', closeSettings);
 document.getElementById('settingsCancel').addEventListener('click', closeSettings);
 overlay.addEventListener('click', closeSettings);
+document.getElementById('btnRefreshDocs').addEventListener('click', loadInventoryBook);
 
 function openSettings() {
   sComponentsTable.value = state.options.componentsTableId || '';
+  sInventoryTable.value = state.options.inventoryTableId || '';
   overlay.classList.add('on');
   settingsPanel.classList.add('on');
 }
@@ -916,10 +970,15 @@ function closeSettings() {
   settingsPanel.classList.remove('on');
 }
 document.getElementById('settingsSave').addEventListener('click', function () {
-  var newOptions = { componentsTableId: sComponentsTable.value.trim() };
+  var newOptions = {
+    componentsTableId: sComponentsTable.value.trim(),
+    inventoryTableId: sInventoryTable.value.trim()
+  };
   grist.setOption('componentsTableId', newOptions.componentsTableId);
+  grist.setOption('inventoryTableId', newOptions.inventoryTableId);
   state.options = newOptions;
   loadComponents();
+  loadInventoryBook();
   closeSettings();
 });
 

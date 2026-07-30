@@ -197,7 +197,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.13.0</footer>
+<footer class="ver-footer">v0.14.0</footer>
 
 <script>
 'use strict';
@@ -999,11 +999,15 @@ function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="
 
 document.getElementById('btnRefreshDocs').addEventListener('click', loadInventoryBook);
 
+var EYE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+var EYE_OFF_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M2 2l20 20"/></svg>';
+
 var btnToggleHidden = document.getElementById('btnToggleHidden');
 btnToggleHidden.addEventListener('click', function () {
   state.showHidden = !state.showHidden;
   btnToggleHidden.classList.toggle('on', state.showHidden);
   btnToggleHidden.title = state.showHidden ? 'Скрыть показ скрытых' : 'Показать скрытые';
+  btnToggleHidden.innerHTML = state.showHidden ? EYE_OFF_ICON : EYE_ICON;
   renderProductsList();
 });
 

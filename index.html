@@ -52,7 +52,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .form-input::placeholder{color:var(--tx3)}
 .form-input.mono{font-family:var(--mono)}
 .form-input[type="date"]{padding:0 2px 0 9px}
-.form-input.formed-num{display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono);background:var(--grn-bg);border-color:var(--grn-brd);color:var(--grn);font-weight:500;cursor:default}
+.form-input.formed-num{display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono);background:var(--grn-bg);border-color:var(--grn-brd);color:var(--grn);font-weight:500;cursor:default;white-space:nowrap;overflow:hidden}
 .form-input.formed-num:focus{background:var(--grn-bg);border-color:var(--grn-brd)}
 .form-date-btn{width:32px;height:32px;flex-shrink:0}
 .form-select{height:32px;border:1px solid var(--brd);border-radius:var(--r);background:#f7f7f7;padding:0 9px;font-family:inherit;font-size:12px;color:var(--tx);outline:none;width:100%;cursor:pointer;transition:border-color .15s}
@@ -148,7 +148,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
     </div>
     <div class="pb">
 
-      <div class="form-row" style="grid-template-columns:100px 130px 76px">
+      <div class="form-row" style="grid-template-columns:minmax(160px,1fr) 130px 76px">
         <div class="form-group">
           <label class="form-label">№ извещения</label>
           <div class="form-input mono formed-num" id="fNoticeNum">—</div>
@@ -197,7 +197,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.15.0</footer>
+<footer class="ver-footer">v0.16.0</footer>
 
 <script>
 'use strict';

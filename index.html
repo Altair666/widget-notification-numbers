@@ -197,7 +197,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.12.0</footer>
+<footer class="ver-footer">v0.13.0</footer>
 
 <script>
 'use strict';
@@ -567,6 +567,22 @@ function buildProductAccordionItem(g) {
   var chevron = document.createElement('span');
   chevron.className = 'prod-chevron' + (expanded ? ' on' : '');
   chevron.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>';
+
+  var hidden = isProductHidden(g.productId);
+  if (hidden) wrap.classList.add('prod-item-hidden');
+
+  var hideBtn = document.createElement('button');
+  hideBtn.className = 'icon-btn prod-hide-btn';
+  hideBtn.title = hidden ? 'Убрать метку "скрыто"' : 'Скрыть это извещение из списка';
+  hideBtn.innerHTML = hidden
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M2 2l20 20"/></svg>'
+    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  hideBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    setProductHidden(g.productId, !hidden);
+    renderProductsList();
+  });
+  header.appendChild(hideBtn);
   header.appendChild(chevron);
 
   var dn = document.createElement('span');
@@ -577,9 +593,7 @@ function buildProductAccordionItem(g) {
   nm.className = 'prod-name'; nm.textContent = g.comp ? g.comp.name : '';
   header.appendChild(nm);
 
-  var hidden = isProductHidden(g.productId);
   if (hidden) {
-    wrap.classList.add('prod-item-hidden');
     var hiddenTag = document.createElement('span');
     hiddenTag.className = 'tag tag-muted'; hiddenTag.textContent = 'скрыто';
     header.appendChild(hiddenTag);
@@ -598,17 +612,6 @@ function buildProductAccordionItem(g) {
     registerNotificationForProduct(g, registerBtn);
   });
   header.appendChild(registerBtn);
-
-  var hideBtn = document.createElement('button');
-  hideBtn.className = 'btn-secondary prod-hide-btn';
-  hideBtn.textContent = hidden ? 'Вернуть' : 'Скрыть';
-  hideBtn.title = hidden ? 'Убрать метку "скрыто"' : 'Скрыть это извещение из списка';
-  hideBtn.addEventListener('click', function (e) {
-    e.stopPropagation();
-    setProductHidden(g.productId, !hidden);
-    renderProductsList();
-  });
-  header.appendChild(hideBtn);
 
   header.addEventListener('click', function () {
     if (state.expandedProductIds[g.productId]) {

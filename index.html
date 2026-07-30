@@ -115,15 +115,13 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-filter-input:focus{border-color:var(--acc)}
 .reg-filter-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none}
 
-.reg-actions{white-space:nowrap;width:56px}
+.reg-actions{white-space:nowrap;width:30px}
 .cell-edit-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid transparent;border-radius:4pt;background:transparent;color:#E07B1F;cursor:pointer;flex-shrink:0;transition:all .1s;padding:0}
 .cell-edit-btn:hover{background:#FFF4E6;color:#C5651A;border-color:#F5D4A0}
 .cell-edit-btn.save{color:var(--grn)}
 .cell-edit-btn.save:hover{background:var(--grn-bg);color:var(--grn);border-color:var(--grn-brd)}
 .cell-edit-btn.cancel{color:var(--red)}
 .cell-edit-btn.cancel:hover{background:var(--red-bg);color:var(--red);border-color:var(--red-brd)}
-.cell-edit-btn.del{color:var(--red)}
-.cell-edit-btn.del:hover{background:var(--red-bg);color:var(--red);border-color:var(--red-brd)}
 .reg-table textarea.form-textarea{min-height:50px;text-align:left;font-size:11px}
 .reg-table input.form-input{height:26px;font-size:11px}
 .tag{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:4pt}
@@ -189,7 +187,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.9.0</footer>
+<footer class="ver-footer">v0.10.0</footer>
 
 <script>
 'use strict';
@@ -745,7 +743,7 @@ function renderRegistry() {
   regCount.textContent = state.records.length;
   var q = (regFilterInput.value || '').trim().toLowerCase();
   var rows = state.records.slice().sort(function (a, b) {
-    return String(b.Number || '').localeCompare(String(a.Number || ''), undefined, { numeric: true });
+    return (b.id || 0) - (a.id || 0);
   });
   if (q) {
     rows = rows.filter(function (r) {
@@ -832,10 +830,7 @@ function renderRegistry() {
       tdActions.className = 'reg-actions';
       var editBtn = iconButton('cell-edit-btn', pencilSvg(), 'Редактировать');
       editBtn.addEventListener('click', function () { editingId = r.id; renderRegistry(); });
-      var delBtn = iconButton('cell-edit-btn del', trashSvg(), 'Удалить');
-      delBtn.addEventListener('click', function () { deleteNotification(r); });
       tdActions.appendChild(editBtn);
-      tdActions.appendChild(delBtn);
       tr.appendChild(tdActions);
 
       tbody.appendChild(tr);
@@ -876,10 +871,7 @@ function renderRegistry() {
         tdActions.className = 'reg-actions'; tdActions.rowSpan = rowSpan;
         var editBtn = iconButton('cell-edit-btn', pencilSvg(), 'Редактировать');
         editBtn.addEventListener('click', function () { editingId = r.id; renderRegistry(); });
-        var delBtn = iconButton('cell-edit-btn del', trashSvg(), 'Удалить');
-        delBtn.addEventListener('click', function () { deleteNotification(r); });
         tdActions.appendChild(editBtn);
-        tdActions.appendChild(delBtn);
         tr.appendChild(tdActions);
       }
 
@@ -936,19 +928,12 @@ function editableRow(r) {
   return frag;
 }
 
-function deleteNotification(r) {
-  var ok = window.confirm('Удалить извещение № ' + (r.Number || '') + '? Действие необратимо.');
-  if (!ok) return;
-  grist.selectedTable.destroy([r.id]).catch(showError);
-}
-
 function iconButton(cls, svg, title) {
   var btn = document.createElement('button');
   btn.className = cls; btn.title = title; btn.innerHTML = svg;
   return btn;
 }
 function pencilSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>'; }
-function trashSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>'; }
 function checkSvg() { return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>'; }
 function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 

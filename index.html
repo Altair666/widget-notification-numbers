@@ -81,8 +81,6 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .gen-dn{font-family:var(--mono);font-size:12px;color:var(--acc);text-align:left;white-space:nowrap}
 .gen-reason{text-align:left;white-space:pre-wrap;word-break:break-word}
 .gen-remove-btn{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:14px;line-height:1;padding:0 4px}
-.gen-restore-btn{display:inline-flex;align-items:center;justify-content:center;color:var(--grn)}
-.gen-row-hidden{opacity:.5}
 
 /* ── Products accordion ── */
 #productsList{display:flex;flex-direction:column;gap:6px;margin-top:12px}
@@ -95,6 +93,8 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .prod-name{font-size:12px;color:var(--tx);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prod-count{flex-shrink:0}
 .prod-header .btn-add{width:auto;padding:8px 16px;flex-shrink:0}
+.prod-hide-btn{flex-shrink:0}
+.prod-item-hidden{opacity:.55}
 .prod-body{border-top:1px solid var(--brd);background:var(--surf);padding:0}
 
 #regBody{overflow-x:auto}
@@ -130,6 +130,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-table input.form-input{height:26px;font-size:11px}
 .tag{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:4pt}
 .tag-blue{background:var(--acc-bg);color:var(--acc)}
+.tag-muted{background:var(--surf3);color:var(--tx2)}
 
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -196,7 +197,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.11.0</footer>
+<footer class="ver-footer">v0.12.0</footer>
 
 <script>
 'use strict';
@@ -227,8 +228,8 @@ var state = {
 
   expandedNoticeIds: {},  // recordId -> true, which registry notices are expanded (collapsed by default when multi-doc)
 
-  hiddenKeys: {},   // pendingKey(productId,item) -> true, persisted in Grist widget options (options.hiddenDocs)
-  showHidden: false, // whether hidden pending items are currently revealed in the accordion (view-only toggle)
+  hiddenKeys: {},   // productId -> true, persisted in Grist widget options (options.hiddenDocs)
+  showHidden: false, // whether hidden product groups are currently revealed in the accordion (view-only toggle)
 
   productGroups: []      // [{productId, comp, list: [{designation, version, reason}, ...]}, ...]
 };
@@ -271,13 +272,16 @@ function refreshChangeNumberFloorsFromServer() {
 
 grist.ready({ requiredAccess: 'full' });
 
+var optionsLoadedOnce = false;
 grist.onOptions(function (options) {
   var prevComponentsId = state.options.componentsTableId;
   var prevInventoryId = state.options.inventoryTableId;
+  var first = !optionsLoadedOnce;
+  optionsLoadedOnce = true;
   state.options = Object.assign({}, DEFAULT_OPTIONS, options || {});
   state.hiddenKeys = state.options.hiddenDocs || {};
-  if (state.options.componentsTableId !== prevComponentsId) loadComponents();
-  if (state.options.inventoryTableId !== prevInventoryId) loadInventoryBook();
+  if (first || state.options.componentsTableId !== prevComponentsId) loadComponents();
+  if (first || state.options.inventoryTableId !== prevInventoryId) loadInventoryBook();
   renderProductsList();
 });
 
@@ -438,25 +442,17 @@ function buildAlreadyNotifiedKeys() {
   return keys;
 }
 
-// ---------- Hidden pending docs (persisted in Grist widget options) ----------
+// ---------- Hidden pending notices (whole product group, persisted in Grist widget options) ----------
 
-function pendingKey(productId, item) {
-  return productId + '|' + item.designation + '|' + (item.version != null ? item.version : '');
+function isProductHidden(productId) {
+  return !!state.hiddenKeys[String(productId)];
 }
 
-function isHidden(productId, item) {
-  return !!state.hiddenKeys[pendingKey(productId, item)];
-}
-
-function setHidden(productId, item, hidden) {
-  var key = pendingKey(productId, item);
+function setProductHidden(productId, hidden) {
+  var key = String(productId);
   if (hidden) state.hiddenKeys[key] = true;
   else delete state.hiddenKeys[key];
   grist.setOption('hiddenDocs', state.hiddenKeys);
-}
-
-function visibleItems(g) {
-  return g.list.filter(function (item) { return !isHidden(g.productId, item); });
 }
 
 // Groups items by reason, preserving the order each distinct reason first
@@ -538,7 +534,7 @@ function renderProductsList() {
   updateNoticeNumberPreview();
   var el = document.getElementById('productsList');
   var groups = state.productGroups.filter(function (g) {
-    return visibleItems(g).length > 0 || (state.showHidden && g.list.length > 0);
+    return !isProductHidden(g.productId) || state.showHidden;
   });
   if (!groups.length) {
     el.innerHTML = '<div class="gen-empty">Нет изделий с новыми документами для извещения</div>';
@@ -581,21 +577,38 @@ function buildProductAccordionItem(g) {
   nm.className = 'prod-name'; nm.textContent = g.comp ? g.comp.name : '';
   header.appendChild(nm);
 
-  var visCount = visibleItems(g).length;
+  var hidden = isProductHidden(g.productId);
+  if (hidden) {
+    wrap.classList.add('prod-item-hidden');
+    var hiddenTag = document.createElement('span');
+    hiddenTag.className = 'tag tag-muted'; hiddenTag.textContent = 'скрыто';
+    header.appendChild(hiddenTag);
+  }
 
   var badge = document.createElement('span');
-  badge.className = 'tag tag-blue prod-count'; badge.textContent = visCount;
+  badge.className = 'tag tag-blue prod-count'; badge.textContent = g.list.length;
   header.appendChild(badge);
 
   var registerBtn = document.createElement('button');
   registerBtn.className = 'btn-add';
   registerBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Зарегистрировать';
-  registerBtn.disabled = !visCount;
+  registerBtn.disabled = !g.list.length;
   registerBtn.addEventListener('click', function (e) {
     e.stopPropagation();
     registerNotificationForProduct(g, registerBtn);
   });
   header.appendChild(registerBtn);
+
+  var hideBtn = document.createElement('button');
+  hideBtn.className = 'btn-secondary prod-hide-btn';
+  hideBtn.textContent = hidden ? 'Вернуть' : 'Скрыть';
+  hideBtn.title = hidden ? 'Убрать метку "скрыто"' : 'Скрыть это извещение из списка';
+  hideBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    setProductHidden(g.productId, !hidden);
+    renderProductsList();
+  });
+  header.appendChild(hideBtn);
 
   header.addEventListener('click', function () {
     if (state.expandedProductIds[g.productId]) {
@@ -630,7 +643,7 @@ function buildGenTable(g) {
   table.className = 'gen-table';
   table.innerHTML = '<thead><tr><th style="text-align:left">Обозначение</th><th>Изменение</th><th style="text-align:left">Причина изменения</th><th></th></tr></thead><tbody></tbody>';
   var tbody = table.querySelector('tbody');
-  var list = g.list.filter(function (item) { return state.showHidden || !isHidden(g.productId, item); });
+  var list = g.list;
 
   var i = 0;
   while (i < list.length) {
@@ -642,9 +655,7 @@ function buildGenTable(g) {
     for (var j = i; j <= runEnd; j++) {
       (function (idx) {
         var row = list[idx];
-        var hidden = isHidden(g.productId, row);
         var tr = document.createElement('tr');
-        if (hidden) tr.className = 'gen-row-hidden';
 
         var tdDn = document.createElement('td');
         tdDn.className = 'gen-dn'; tdDn.textContent = row.designation;
@@ -664,20 +675,11 @@ function buildGenTable(g) {
 
         var tdRemove = document.createElement('td');
         var btn = document.createElement('button');
-        if (hidden) {
-          btn.className = 'gen-remove-btn gen-restore-btn'; btn.title = 'Вернуть';
-          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
-          btn.addEventListener('click', function () {
-            setHidden(g.productId, row, false);
-            renderProductsList();
-          });
-        } else {
-          btn.className = 'gen-remove-btn'; btn.textContent = '×'; btn.title = 'Скрыть';
-          btn.addEventListener('click', function () {
-            setHidden(g.productId, row, true);
-            renderProductsList();
-          });
-        }
+        btn.className = 'gen-remove-btn'; btn.textContent = '×'; btn.title = 'Убрать';
+        btn.addEventListener('click', function () {
+          list.splice(idx, 1);
+          renderProductsList();
+        });
         tdRemove.appendChild(btn);
         tr.appendChild(tdRemove);
 
@@ -737,9 +739,9 @@ function registerNotificationForProduct(g, btn) {
   var dateVal = document.getElementById('fDate').value;
   var year = dateVal ? dateVal.slice(0, 4) : '';
   var prefix = orgPrefixFor(comp);
-  var list = visibleItems(g);
+  var list = g.list;
   if (!prefix || !year) { window.alert('Не удалось определить префикс организации или год выпуска.'); return; }
-  if (!list.length) { window.alert('Нет документов для извещения — все версии из inventory_book уже отражены в реестре или скрыты.'); return; }
+  if (!list.length) { window.alert('Нет документов для извещения — все версии из inventory_book уже отражены в реестре.'); return; }
 
   var fields = {
     Number: computeNextNumber(prefix, year),

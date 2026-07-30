@@ -103,6 +103,12 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-docs{text-align:left;white-space:pre-wrap;font-family:var(--mono);font-size:11px;max-width:220px;word-break:break-word;overflow-wrap:anywhere}
 .reg-reason{text-align:left;white-space:pre-wrap;max-width:240px;word-break:break-word;overflow-wrap:anywhere}
 .reg-empty{padding:16px;text-align:center;color:var(--tx3);font-size:12px}
+.reg-num-toggle{display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
+.reg-num-toggle:hover{color:var(--acc)}
+.reg-chevron{display:inline-flex;align-items:center;color:var(--tx3);transition:transform .15s;flex-shrink:0}
+.reg-chevron.on{transform:rotate(90deg)}
+.reg-num-toggle:hover .reg-chevron{color:var(--acc)}
+.reg-doc-count{white-space:nowrap}
 .reg-filter-bar{padding:8px 12px;background:var(--surf2);border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:8px}
 .reg-filter-wrap{position:relative;flex:1}
 .reg-filter-input{width:100%;height:28px;border:1px solid var(--brd);border-radius:var(--r);padding:0 9px 0 28px;font-family:inherit;font-size:12px;background:#fff;outline:none;color:var(--tx)}
@@ -183,7 +189,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.8.0</footer>
+<footer class="ver-footer">v0.9.0</footer>
 
 <script>
 'use strict';
@@ -210,6 +216,8 @@ var state = {
 
   expandedProductIds: {}, // productId -> true, which accordion items are open
   previewProductId: null, // productId whose № извещения preview is shown at the top of the form
+
+  expandedNoticeIds: {},  // recordId -> true, which registry notices are expanded (collapsed by default when multi-doc)
 
   productGroups: []      // [{productId, comp, list: [{designation, version, reason}, ...]}, ...]
 };
@@ -726,6 +734,13 @@ function formatDesignationToken(tok) {
   return parsed.version != null ? (parsed.designation + ' (изм. ' + parsed.version + ')') : parsed.designation;
 }
 
+function pluralDocs(n) {
+  var mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'документ';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'документа';
+  return 'документов';
+}
+
 function renderRegistry() {
   regCount.textContent = state.records.length;
   var q = (regFilterInput.value || '').trim().toLowerCase();
@@ -764,15 +779,76 @@ function renderRegistry() {
 
     var tokens = String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean);
     var docs = tokens.length ? tokens.map(parseDesignationToken) : [{ designation: '', version: null }];
+    var collapsible = docs.length > 1;
+    var expanded = !collapsible || !!state.expandedNoticeIds[r.id];
+
+    function toggleNotice() {
+      if (state.expandedNoticeIds[r.id]) delete state.expandedNoticeIds[r.id];
+      else state.expandedNoticeIds[r.id] = true;
+      renderRegistry();
+    }
+
+    function buildNumCell(rowSpan) {
+      var tdNum = document.createElement('td');
+      tdNum.className = 'reg-dn'; tdNum.rowSpan = rowSpan;
+      if (!collapsible) { tdNum.textContent = r.Number || ''; return tdNum; }
+      var toggle = document.createElement('span');
+      toggle.className = 'reg-num-toggle';
+      toggle.title = expanded ? 'Свернуть' : 'Развернуть';
+      toggle.innerHTML = '<span class="reg-chevron' + (expanded ? ' on' : '') +
+        '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>';
+      toggle.appendChild(document.createTextNode(r.Number || ''));
+      toggle.addEventListener('click', toggleNotice);
+      tdNum.appendChild(toggle);
+      return tdNum;
+    }
+
+    if (!expanded) {
+      var tr = document.createElement('tr');
+      tr.appendChild(buildNumCell(1));
+
+      var tdDate = document.createElement('td');
+      tdDate.textContent = formatDate(r.IssueDate);
+      tr.appendChild(tdDate);
+
+      var tdProduct = document.createElement('td');
+      tdProduct.textContent = productLabelForRecord(r);
+      tr.appendChild(tdProduct);
+
+      var tdDn = document.createElement('td');
+      tdDn.className = 'reg-docs reg-doc-count';
+      tdDn.innerHTML = '<span class="tag tag-blue">' + docs.length + ' ' + pluralDocs(docs.length) + '</span>';
+      tr.appendChild(tdDn);
+
+      var tdVer = document.createElement('td');
+      tdVer.textContent = '—';
+      tr.appendChild(tdVer);
+
+      var tdReason = document.createElement('td');
+      tdReason.className = 'reg-reason'; tdReason.textContent = r.ChangeReason || '';
+      tr.appendChild(tdReason);
+
+      var tdActions = document.createElement('td');
+      tdActions.className = 'reg-actions';
+      var editBtn = iconButton('cell-edit-btn', pencilSvg(), 'Редактировать');
+      editBtn.addEventListener('click', function () { editingId = r.id; renderRegistry(); });
+      var delBtn = iconButton('cell-edit-btn del', trashSvg(), 'Удалить');
+      delBtn.addEventListener('click', function () { deleteNotification(r); });
+      tdActions.appendChild(editBtn);
+      tdActions.appendChild(delBtn);
+      tr.appendChild(tdActions);
+
+      tbody.appendChild(tr);
+      return;
+    }
+
     var rowSpan = docs.length;
 
     docs.forEach(function (doc, idx) {
       var tr = document.createElement('tr');
 
       if (idx === 0) {
-        var tdNum = document.createElement('td');
-        tdNum.className = 'reg-dn'; tdNum.rowSpan = rowSpan; tdNum.textContent = r.Number || '';
-        tr.appendChild(tdNum);
+        tr.appendChild(buildNumCell(rowSpan));
 
         var tdDate = document.createElement('td');
         tdDate.rowSpan = rowSpan; tdDate.textContent = formatDate(r.IssueDate);

@@ -197,7 +197,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.16.1</footer>
+<footer class="ver-footer">v0.17.0</footer>
 
 <script>
 'use strict';
@@ -259,10 +259,12 @@ function refreshChangeNumberFloorsFromServer() {
   grist.docApi.fetchSelectedTable().then(function (table) {
     var ids = table.id || [];
     var products = table.Product || [];
+    var productNames = table.ProductName || [];
     var changeNumbers = table.ChangeNumber || [];
     ids.forEach(function (id, i) {
       var n = parseInt(String(changeNumbers[i] || '0').replace(/[^0-9]/g, ''), 10);
-      bumpChangeNumberFloor(products[i], n);
+      var key = products[i] ? String(products[i]) : ('u:' + (productNames[i] || ''));
+      bumpChangeNumberFloor(key, n);
     });
     renderProductsList();
   }).catch(function (err) { console.error('Не удалось получить сырые данные для расчёта № изменения', err); });
@@ -391,6 +393,7 @@ function loadInventoryBook() {
     var ids = table.id || [];
     var col = makeColGetter(table);
     var products = col(['Product']);
+    var productNames = col(['ProductName']);
     var designations = col(['DocumentDesignation']);
     var changeNumbers = col(['ChangeNumber']);
     var notes = col(['Note']);
@@ -401,6 +404,7 @@ function loadInventoryBook() {
       rows.push({
         id: id,
         product: products ? products[i] : null,
+        productName: productNames ? (productNames[i] || '') : '',
         designation: designation,
         changeNumber: changeNumbers ? changeNumbers[i] : 0,
         reason: notes ? (notes[i] || '') : ''
@@ -431,10 +435,22 @@ function parseDesignationToken(tok) {
   return { designation: tok.slice(0, idx), version: parseInt(verPart, 10) };
 }
 
+// New records join designations with '\n' (a designation can itself contain
+// spaces, e.g. "ru.лмап.502900-01 31 01 - рэ", so a plain space separator is
+// ambiguous). Legacy records were written space-joined before this fix, back
+// when no designation happened to contain a space — split on those the old
+// way only when the string has no newline in it at all.
+function splitDesignations(str) {
+  str = String(str || '').trim();
+  if (!str) return [];
+  if (str.indexOf('\n') !== -1) return str.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  return str.split(/\s+/).filter(Boolean);
+}
+
 function buildAlreadyNotifiedKeys() {
   var keys = {};
   state.records.forEach(function (r) {
-    String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean).forEach(function (tok) {
+    splitDesignations(r.DocumentDesignations).forEach(function (tok) {
       var parsed = parseDesignationToken(tok);
       if (parsed.version != null) keys[parsed.designation + '#' + parsed.version] = true;
     });
@@ -478,10 +494,31 @@ function computeChangeReasonText(list) {
   }).join('\n');
 }
 
+// Documents whose inventory_book row has no Product (no "первичное применение" —
+// not linked to any assembly in the components table) still need to be notifiable.
+// They're grouped by their own ProductName instead of a real Product id (falling
+// back to grouping by designation, one document per group, if even ProductName is
+// blank) — key is prefixed 'u:' so it can never collide with a real numeric id.
+function pendingGroupKey(row) {
+  return row.product ? String(row.product) : ('u:' + (row.productName || row.designation));
+}
+
+// Best-effort org prefix for a document with no linked product: ESKD designations
+// are "<country-code>.<org-code>.<rest>" (e.g. "ru.лмап.502900-01 31 01 - рэ") —
+// the org code is the segment right after the country code.
+function orgPrefixFromDesignation(designation) {
+  var base = String(designation || '').split(/\s+/)[0];
+  var parts = base.split('.');
+  if (parts.length >= 3) return parts[1].toUpperCase();
+  if (parts.length === 2 && !/^\d+$/.test(parts[0])) return parts[0].toUpperCase();
+  return '';
+}
+
 // Builds the productId -> pending-document-list map straight from inventory_book
 // (grouped by each row's own Product, no BOM-subtree rollup — a document belongs
-// to exactly the product recorded against it), reasons merged and dedup'd against
-// what's already in the registry.
+// to exactly the product recorded against it; documents with no Product are
+// grouped by ProductName instead, see pendingGroupKey), reasons merged and
+// dedup'd against what's already in the registry.
 function rebuildAllProductGroups() {
   if (!state.componentsLoaded || !state.inventoryLoaded) {
     state.productGroups = [];
@@ -491,38 +528,46 @@ function rebuildAllProductGroups() {
 
   var notifiedKeys = buildAlreadyNotifiedKeys();
 
-  // latest version per (product, designation) among all inventory_book rows
-  var latestByProductDesignation = {};
+  // latest version per (group, designation) among all inventory_book rows
+  var latestByGroupDesignation = {};
   state.inventoryRows.forEach(function (row) {
-    if (!row.product) return;
-    var key = row.product + ' ' + row.designation;
-    var existing = latestByProductDesignation[key];
+    var key = pendingGroupKey(row) + ' ' + row.designation;
+    var existing = latestByGroupDesignation[key];
     if (!existing || Number(row.changeNumber) > Number(existing.changeNumber)) {
-      latestByProductDesignation[key] = row;
+      latestByGroupDesignation[key] = row;
     }
   });
 
-  var byProduct = {};
-  Object.keys(latestByProductDesignation).forEach(function (k) {
-    var row = latestByProductDesignation[k];
+  var byGroup = {};
+  Object.keys(latestByGroupDesignation).forEach(function (k) {
+    var row = latestByGroupDesignation[k];
     var key = row.designation + '#' + (row.changeNumber != null ? row.changeNumber : '');
     if (notifiedKeys[key]) return;
-    if (!byProduct[row.product]) byProduct[row.product] = [];
-    byProduct[row.product].push({ designation: row.designation, version: row.changeNumber, reason: row.reason || '' });
+    var groupKey = pendingGroupKey(row);
+    if (!byGroup[groupKey]) byGroup[groupKey] = { rawProductId: row.product || 0, productName: row.productName || '', items: [] };
+    byGroup[groupKey].items.push({ designation: row.designation, version: row.changeNumber, reason: row.reason || '' });
   });
 
-  var groups = Object.keys(byProduct).map(function (productId) {
-    var candidates = byProduct[productId].sort(function (a, b) {
+  var groups = Object.keys(byGroup).map(function (groupKey) {
+    var entry = byGroup[groupKey];
+    var candidates = entry.items.sort(function (a, b) {
       return String(a.designation).localeCompare(String(b.designation), undefined, { numeric: true });
     });
     var flat = [];
     reasonGroups(candidates).forEach(function (g) { g.items.forEach(function (i) { flat.push(i); }); });
-    return { productId: Number(productId), comp: state.componentsById[productId], list: flat };
+    var comp = entry.rawProductId ? state.componentsById[entry.rawProductId] : null;
+    return {
+      productId: groupKey,
+      rawProductId: entry.rawProductId,
+      comp: comp,
+      unassignedName: comp ? null : (entry.productName || '(без изделия)'),
+      list: flat
+    };
   });
 
   groups.sort(function (a, b) {
-    var an = a.comp ? a.comp.decimal_number : '';
-    var bn = b.comp ? b.comp.decimal_number : '';
+    var an = a.comp ? a.comp.decimal_number : (a.unassignedName || '');
+    var bn = b.comp ? b.comp.decimal_number : (b.unassignedName || '');
     return String(an).localeCompare(String(bn), undefined, { numeric: true });
   });
 
@@ -586,11 +631,11 @@ function buildProductAccordionItem(g) {
   header.appendChild(chevron);
 
   var dn = document.createElement('span');
-  dn.className = 'prod-dn'; dn.textContent = g.comp ? g.comp.decimal_number : ('#' + g.productId);
+  dn.className = 'prod-dn'; dn.textContent = g.comp ? g.comp.decimal_number : '';
   header.appendChild(dn);
 
   var nm = document.createElement('span');
-  nm.className = 'prod-name'; nm.textContent = g.comp ? g.comp.name : '';
+  nm.className = 'prod-name'; nm.textContent = g.comp ? g.comp.name : (g.unassignedName || '');
   header.appendChild(nm);
 
   if (hidden) {
@@ -741,7 +786,7 @@ function registerNotificationForProduct(g, btn) {
   var comp = g.comp;
   var dateVal = document.getElementById('fDate').value;
   var year = dateVal ? dateVal.slice(0, 4) : '';
-  var prefix = orgPrefixFor(comp);
+  var prefix = comp ? orgPrefixFor(comp) : orgPrefixFromDesignation(g.list[0] ? g.list[0].designation : '');
   var list = g.list;
   if (!prefix || !year) { window.alert('Не удалось определить префикс организации или год выпуска.'); return; }
   if (!list.length) { window.alert('Нет документов для извещения — все версии из inventory_book уже отражены в реестре.'); return; }
@@ -749,18 +794,18 @@ function registerNotificationForProduct(g, btn) {
   var fields = {
     Number: computeNextNumber(prefix, year),
     IssueDate: inputValueToDate(dateVal),
-    Product: g.productId,
-    ProductName: comp ? comp.name : '',
+    Product: g.rawProductId,
+    ProductName: comp ? comp.name : (g.unassignedName || ''),
     DocumentDesignations: list.map(function (item) {
       return item.designation + (item.version != null ? '#' + item.version : '');
-    }).join(' '),
+    }).join('\n'),
     ChangeReason: computeChangeReasonText(list),
     ChangeNumber: computeNextChangeNumber(g.productId)
   };
   // claim the ChangeNumber immediately, before the async write even starts —
   // computeNextChangeNumber() must never hand out this value again, regardless
   // of what onRecords delivers in the meantime
-  bumpChangeNumberFloor(fields.Product, fields.ChangeNumber);
+  bumpChangeNumberFloor(g.productId, fields.ChangeNumber);
   btn.disabled = true;
   grist.selectedTable.create({ fields: fields }).then(function (result) {
     var newId = (result && typeof result.id !== 'undefined') ? result.id : (Array.isArray(result) ? result[0].id : undefined);
@@ -835,7 +880,7 @@ function renderRegistry() {
       return;
     }
 
-    var tokens = String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean);
+    var tokens = splitDesignations(r.DocumentDesignations);
     var docs = tokens.length ? tokens.map(parseDesignationToken) : [{ designation: '', version: null }];
     var collapsible = docs.length > 1;
     var expanded = !collapsible || !!state.expandedNoticeIds[r.id];
@@ -960,7 +1005,7 @@ function editableRow(r) {
 
   var tdDocs = document.createElement('td');
   tdDocs.className = 'reg-docs'; tdDocs.colSpan = 2;
-  tdDocs.textContent = String(r.DocumentDesignations || '').trim().split(/\s+/).filter(Boolean).map(formatDesignationToken).join('\n');
+  tdDocs.textContent = splitDesignations(r.DocumentDesignations).map(formatDesignationToken).join('\n');
   frag.appendChild(tdDocs);
 
   var tdReason = document.createElement('td');

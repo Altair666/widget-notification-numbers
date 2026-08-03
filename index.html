@@ -197,7 +197,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.17.0</footer>
+<footer class="ver-footer">v0.18.0</footer>
 
 <script>
 'use strict';
@@ -1005,7 +1005,11 @@ function editableRow(r) {
 
   var tdDocs = document.createElement('td');
   tdDocs.className = 'reg-docs'; tdDocs.colSpan = 2;
-  tdDocs.textContent = splitDesignations(r.DocumentDesignations).map(formatDesignationToken).join('\n');
+  var taDocs = document.createElement('textarea');
+  taDocs.className = 'form-textarea';
+  taDocs.value = splitDesignations(r.DocumentDesignations).join('\n');
+  taDocs.title = 'Каждый документ на отдельной строке. Номер изменения документа указывается через "#", например: RU.ЛМАП.502900-01 34 01#4';
+  tdDocs.appendChild(taDocs);
   frag.appendChild(tdDocs);
 
   var tdReason = document.createElement('td');
@@ -1019,7 +1023,11 @@ function editableRow(r) {
   tdActions.className = 'reg-actions';
   var saveBtn = iconButton('cell-edit-btn save', checkSvg(), 'Сохранить');
   saveBtn.addEventListener('click', function () {
-    var fields = { ChangeReason: taReason.value.trim() };
+    var docsList = taDocs.value.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var fields = {
+      ChangeReason: taReason.value.trim(),
+      DocumentDesignations: docsList.join('\n')
+    };
     grist.selectedTable.update({ id: r.id, fields: fields }).then(function () {
       editingId = null;
     }).catch(showError);

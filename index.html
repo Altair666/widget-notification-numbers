@@ -197,7 +197,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.18.0</footer>
+<footer class="ver-footer">v0.18.1</footer>
 
 <script>
 'use strict';
@@ -437,14 +437,18 @@ function parseDesignationToken(tok) {
 
 // New records join designations with '\n' (a designation can itself contain
 // spaces, e.g. "ru.лмап.502900-01 31 01 - рэ", so a plain space separator is
-// ambiguous). Legacy records were written space-joined before this fix, back
-// when no designation happened to contain a space — split on those the old
-// way only when the string has no newline in it at all.
+// ambiguous) and always carry a trailing '\n', even for a single document,
+// so this format is detectable regardless of item count. Legacy records were
+// written space-joined before this fix and never contain '\n' at all — split
+// on those the old way only when the raw string has no newline in it.
+// (The newline check runs on the *raw*, untrimmed string: trimming first
+// would strip a lone trailing '\n' and misclassify a single-item new-format
+// record as legacy.)
 function splitDesignations(str) {
-  str = String(str || '').trim();
-  if (!str) return [];
-  if (str.indexOf('\n') !== -1) return str.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
-  return str.split(/\s+/).filter(Boolean);
+  var raw = String(str || '');
+  if (!raw.trim()) return [];
+  if (raw.indexOf('\n') !== -1) return raw.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  return raw.trim().split(/\s+/).filter(Boolean);
 }
 
 function buildAlreadyNotifiedKeys() {
@@ -798,7 +802,7 @@ function registerNotificationForProduct(g, btn) {
     ProductName: comp ? comp.name : (g.unassignedName || ''),
     DocumentDesignations: list.map(function (item) {
       return item.designation + (item.version != null ? '#' + item.version : '');
-    }).join('\n'),
+    }).join('\n') + '\n',
     ChangeReason: computeChangeReasonText(list),
     ChangeNumber: computeNextChangeNumber(g.productId)
   };
@@ -1026,7 +1030,7 @@ function editableRow(r) {
     var docsList = taDocs.value.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
     var fields = {
       ChangeReason: taReason.value.trim(),
-      DocumentDesignations: docsList.join('\n')
+      DocumentDesignations: docsList.length ? (docsList.join('\n') + '\n') : ''
     };
     grist.selectedTable.update({ id: r.id, fields: fields }).then(function () {
       editingId = null;

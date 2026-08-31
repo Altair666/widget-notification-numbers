@@ -186,7 +186,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
         <svg class="reg-filter-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input class="reg-filter-input" id="regFilterInput" placeholder="Фильтр по номеру, изделию, документам…" oninput="renderRegistry()">
       </div>
-      <button class="icon-btn" id="btnMigrateRefs" title="Перевести старые извещения (текст) на ссылки на inventory_book">
+      <button class="icon-btn" id="btnMigrateRefs" title="Преобразовать колонку DocumentDesignations в ссылки на inventory_book (необратимо, показывает предпросмотр)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       </button>
     </div>
@@ -200,7 +200,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.19.0</footer>
+<footer class="ver-footer">v0.20.0</footer>
 
 <script>
 'use strict';
@@ -208,7 +208,6 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 var COMPONENTS_TABLE_CANDIDATES = ['Components', 'components'];
 var INVENTORY_TABLE_CANDIDATES = ['inventory_book', 'Inventory_book', 'InventoryBook', 'Inventory_Book'];
 var NOTICE_TABLE_CANDIDATES = ['Notice_of_change'];
-var REF_COL_ID = 'DocumentDesignationsRef';
 
 var DEFAULT_OPTIONS = {
   componentsTableId: '',
@@ -227,9 +226,9 @@ var state = {
   inventoryRows: [],     // [{id, product, designation, changeNumber, reason}]
   inventoryById: {},     // id -> same row objects, for O(1) lookup by DocumentDesignationsRef entries
   inventoryLoaded: false,
-  inventoryTableId: null, // resolved real tableId of inventory_book (needed for RefList type/AddColumn)
+  inventoryTableId: null, // resolved real tableId of inventory_book (needed for RefList type/ModifyColumn)
   noticeTableId: null,    // resolved real tableId of this widget's own bound table (Notice_of_change)
-  refColumnReady: false,  // whether REF_COL_ID exists on the notice table (created on demand, see ensureDesignationsRefColumn)
+  designationsColumnIsRef: false, // whether DocumentDesignations is already RefList (see detectDesignationsColumnType)
 
   expandedProductIds: {}, // productId -> true, which accordion items are open
   previewProductId: null, // productId whose № извещения preview is shown at the top of the form
@@ -273,13 +272,13 @@ grist.onRecords(function (records) {
 });
 
 // Resolve this widget's own bound tableId once, so applyUserActions calls
-// (ensureDesignationsRefColumn, migrateLegacyDesignations) can target it —
-// grist.selectedTable.create/update resolve the binding automatically, but
-// raw applyUserActions needs the real tableId string.
+// (convertDesignationsColumnToRef) can target it — grist.selectedTable
+// .create/update resolve the binding automatically, but raw
+// applyUserActions needs the real tableId string.
 if (grist.docApi.listTables) {
   grist.docApi.listTables().then(function (allTables) {
     state.noticeTableId = resolveTableId(NOTICE_TABLE_CANDIDATES, allTables);
-    ensureDesignationsRefColumn();
+    detectDesignationsColumnType();
   }).catch(function (err) { console.error('Не удалось определить tableId текущей таблицы', err); });
 }
 
@@ -405,7 +404,7 @@ function loadInventoryBook() {
     state.inventoryById = byId;
     state.inventoryLoaded = true;
     rebuildAllProductGroups();
-    ensureDesignationsRefColumn();
+    detectDesignationsColumnType();
   }).catch(function (err) {
     console.error('Не удалось загрузить таблицу inventory_book среди: ' + candidates.join(', '), err);
     state.inventoryRows = [];
@@ -415,16 +414,18 @@ function loadInventoryBook() {
   });
 }
 
-// ---------- DocumentDesignationsRef (real Grist Reference List → inventory_book) ----------
+// ---------- DocumentDesignations as a real Grist Reference List → inventory_book ----------
 //
 // DocumentDesignations used to be a plain Text column storing a custom
-// "designation#version" encoding (one per line). The user asked for an
-// actual in-table Grist link instead — this is a genuine Reference List
-// column pointing at inventory_book rows, created on demand below.
-// Legacy text is left untouched (still written alongside, still parsed as
-// a fallback for records that haven't been migrated — see
-// resolveDocsForRecord and migrateLegacyDesignations) so nothing here is
-// destructive: it's additive, and safe to run repeatedly.
+// "designation#version" encoding (one per line). The user wants the column
+// itself to hold real Grist links, not a UI trick and not a parallel
+// column — so this is a genuine in-place type change (ModifyColumn Text ->
+// RefList) on convertDesignationsColumnToRef(), triggered explicitly by the
+// user (a confirm dialog shows a preview first — this touches every
+// existing row of a live shared table, so it must never run silently).
+// Until that runs, the column is still Text and everything here falls back
+// to parsing/writing the legacy string format — see
+// state.designationsColumnIsRef.
 
 function toRefListValue(ids) {
   return ['L'].concat(ids);
@@ -435,51 +436,33 @@ function fromRefListValue(v) {
   return (v[0] === 'L' ? v.slice(1) : v.slice()).filter(function (id) { return typeof id === 'number'; });
 }
 
-var ensureRefColumnInFlight = false;
-function ensureDesignationsRefColumn() {
-  if (state.refColumnReady || ensureRefColumnInFlight || !state.noticeTableId || !state.inventoryTableId) return;
-  ensureRefColumnInFlight = true;
-  grist.docApi.fetchTable(state.noticeTableId).then(function (table) {
-    if (Object.prototype.hasOwnProperty.call(table, REF_COL_ID)) {
-      state.refColumnReady = true;
-      return;
-    }
-    return Promise.all([
-      grist.docApi.fetchTable('_grist_Tables'),
-      grist.docApi.fetchTable('_grist_Tables_column')
-    ]).then(function (res) {
-      var metaTables = res[0], metaCols = res[1];
-      var tIdx = (metaTables.tableId || []).indexOf(state.inventoryTableId);
-      var inventoryTableRef = tIdx !== -1 ? metaTables.id[tIdx] : null;
-      var visibleCol = 0;
-      if (inventoryTableRef) {
-        for (var i = 0; i < (metaCols.id || []).length; i++) {
-          if (metaCols.parentId[i] === inventoryTableRef && String(metaCols.colId[i]).toLowerCase() === 'documentdesignation') {
-            visibleCol = metaCols.id[i];
-            break;
-          }
-        }
+// Reads the live column type of DocumentDesignations off Grist's own schema
+// metadata, so the widget knows whether to read/write refs or legacy text
+// (rather than guessing from a single row's value, which is ambiguous when
+// the table has zero rows).
+function detectDesignationsColumnType() {
+  if (!state.noticeTableId) return;
+  Promise.all([
+    grist.docApi.fetchTable('_grist_Tables'),
+    grist.docApi.fetchTable('_grist_Tables_column')
+  ]).then(function (res) {
+    var metaTables = res[0], metaCols = res[1];
+    var tIdx = (metaTables.tableId || []).indexOf(state.noticeTableId);
+    var noticeTableRef = tIdx !== -1 ? metaTables.id[tIdx] : null;
+    if (noticeTableRef == null) return;
+    for (var i = 0; i < (metaCols.id || []).length; i++) {
+      if (metaCols.parentId[i] === noticeTableRef && metaCols.colId[i] === 'DocumentDesignations') {
+        state.designationsColumnIsRef = /^Ref/.test(String(metaCols.type[i] || ''));
+        break;
       }
-      return grist.docApi.applyUserActions([[
-        'AddColumn', state.noticeTableId, REF_COL_ID,
-        { type: 'RefList:' + state.inventoryTableId, visibleCol: visibleCol, label: 'Обозначения (ссылки)' }
-      ]]);
-    });
-  }).then(function () {
-    state.refColumnReady = true;
-  }).catch(function (err) {
-    console.error('Не удалось создать колонку ' + REF_COL_ID + ' на ' + state.noticeTableId, err);
-  }).then(function () {
-    ensureRefColumnInFlight = false;
-  });
+    }
+  }).catch(function (err) { console.error('Не удалось определить тип колонки DocumentDesignations', err); });
 }
 
-// Resolves a notice record's documents to display, preferring real refs
-// (REF_COL_ID) and falling back to the legacy "designation#version" text
-// encoding for records that haven't been migrated yet (see
-// migrateLegacyDesignations for a one-click bulk migration).
+// Resolves a notice record's documents to display, reading whichever format
+// the column currently holds (see state.designationsColumnIsRef).
 function resolveDocsForRecord(r) {
-  var refIds = fromRefListValue(r[REF_COL_ID]);
+  var refIds = fromRefListValue(r.DocumentDesignations);
   if (refIds.length) {
     return refIds.map(function (id) {
       var row = state.inventoryById[id];
@@ -488,6 +471,7 @@ function resolveDocsForRecord(r) {
         : { designation: '#' + id + ' (не найдено в inventory_book)', version: null, id: id };
     });
   }
+  if (state.designationsColumnIsRef) return [{ designation: '', version: null, id: null }];
   var tokens = splitDesignations(r.DocumentDesignations);
   if (!tokens.length) return [{ designation: '', version: null, id: null }];
   return tokens.map(function (tok) {
@@ -497,9 +481,9 @@ function resolveDocsForRecord(r) {
 }
 
 // Matches a typed "designation" or "designation#version" line against
-// inventory_book rows — same rules used both by the inline editor and by
-// the bulk legacy migration below. No version given → latest known version
-// for that designation (mirrors rebuildAllProductGroups' own "latest" pick).
+// inventory_book rows — used by the inline editor and by the bulk
+// conversion below. No version given → latest known version for that
+// designation (mirrors rebuildAllProductGroups' own "latest" pick).
 function findInventoryRowForToken(tok) {
   var parsed = parseDesignationToken(tok);
   var candidates = state.inventoryRows.filter(function (row) { return row.designation === parsed.designation; });
@@ -510,44 +494,69 @@ function findInventoryRowForToken(tok) {
   return candidates.slice().sort(function (a, b) { return Number(b.changeNumber) - Number(a.changeNumber); })[0];
 }
 
-// One-click bulk migration for pre-existing records: resolves each legacy
-// text-encoded record's tokens to real inventory_book row ids and writes
-// REF_COL_ID. Only touches records that don't already have refs — never
-// overwrites an already-migrated or manually-edited ref list. Reports
-// unresolved tokens (e.g. an inventory_book row since deleted) instead of
-// guessing, so nothing is silently linked wrong.
-function migrateLegacyDesignations() {
-  if (!state.noticeTableId || !state.refColumnReady) { window.alert('Колонка ссылок ещё не готова, попробуйте через секунду.'); return; }
-  var actions = [];
-  var touched = 0;
+// Explicit, user-triggered, one-time conversion of DocumentDesignations
+// itself from Text to RefList:inventory_book. Resolves every existing
+// record's legacy text BEFORE touching the schema, then sends the
+// ModifyColumn together with every record's recomputed value as ONE
+// applyUserActions batch — Grist applies a batch atomically, so there is no
+// intermediate state where the column has changed type but rows haven't
+// been repopulated yet. Records with unresolved tokens end up with an
+// empty ref list for those tokens (never guessed) and are listed in the
+// report. Per house rule: preview + explicit confirm before any bulk
+// modify of a live shared table.
+function convertDesignationsColumnToRef() {
+  if (state.designationsColumnIsRef) { window.alert('DocumentDesignations уже является колонкой-ссылкой.'); return; }
+  if (!state.noticeTableId || !state.inventoryTableId) { window.alert('Таблицы ещё не определены, попробуйте через секунду.'); return; }
+
+  var perRecordIds = {};
   var unresolved = [];
+  var recordsWithDocs = 0;
   state.records.forEach(function (r) {
-    if (fromRefListValue(r[REF_COL_ID]).length) return;
     var tokens = splitDesignations(r.DocumentDesignations);
     if (!tokens.length) return;
+    recordsWithDocs++;
     var ids = [];
-    var ok = true;
     tokens.forEach(function (tok) {
       var row = findInventoryRowForToken(tok);
       if (row) ids.push(row.id);
-      else { ok = false; unresolved.push('№' + (r.Number || r.id) + ': ' + tok); }
+      else unresolved.push('№' + (r.Number || r.id) + ': ' + tok);
     });
-    if (ok && ids.length) {
-      var patch = {};
-      patch[REF_COL_ID] = toRefListValue(ids);
-      actions.push(['UpdateRecord', state.noticeTableId, r.id, patch]);
-      touched++;
-    }
+    perRecordIds[r.id] = ids;
   });
-  if (!actions.length) {
-    window.alert(unresolved.length
-      ? 'Не удалось сопоставить ни одной записи. Несопоставленные обозначения:\n' + unresolved.join('\n')
-      : 'Все записи уже используют ссылки — миграция не требуется.');
-    return;
-  }
-  grist.docApi.applyUserActions(actions).then(function () {
-    var msg = 'Готово: ' + touched + ' извещений переведено на ссылки.';
-    if (unresolved.length) msg += '\nНе удалось сопоставить:\n' + unresolved.join('\n');
+
+  var preview = 'Колонка DocumentDesignations будет преобразована из текста в ссылки (RefList) на inventory_book.\n' +
+    'Затронет все ' + state.records.length + ' извещений (' + recordsWithDocs + ' с документами).\n' +
+    (unresolved.length
+      ? 'Не удалось сопоставить ' + unresolved.length + ' обозначений (останутся без ссылки):\n' + unresolved.slice(0, 20).join('\n') + (unresolved.length > 20 ? '\n…' : '')
+      : 'Все обозначения успешно сопоставлены с inventory_book.') +
+    '\n\nЭто изменение живой таблицы. Продолжить?';
+  if (!window.confirm(preview)) return;
+
+  Promise.all([
+    grist.docApi.fetchTable('_grist_Tables'),
+    grist.docApi.fetchTable('_grist_Tables_column')
+  ]).then(function (res) {
+    var metaTables = res[0], metaCols = res[1];
+    var tIdx = (metaTables.tableId || []).indexOf(state.inventoryTableId);
+    var inventoryTableRef = tIdx !== -1 ? metaTables.id[tIdx] : null;
+    var visibleCol = 0;
+    if (inventoryTableRef) {
+      for (var i = 0; i < (metaCols.id || []).length; i++) {
+        if (metaCols.parentId[i] === inventoryTableRef && String(metaCols.colId[i]).toLowerCase() === 'documentdesignation') {
+          visibleCol = metaCols.id[i];
+          break;
+        }
+      }
+    }
+    var actions = [['ModifyColumn', state.noticeTableId, 'DocumentDesignations', { type: 'RefList:' + state.inventoryTableId, visibleCol: visibleCol }]];
+    Object.keys(perRecordIds).forEach(function (recId) {
+      actions.push(['UpdateRecord', state.noticeTableId, Number(recId), { DocumentDesignations: toRefListValue(perRecordIds[recId]) }]);
+    });
+    return grist.docApi.applyUserActions(actions);
+  }).then(function () {
+    state.designationsColumnIsRef = true;
+    var msg = 'Готово: колонка DocumentDesignations теперь хранит ссылки.';
+    if (unresolved.length) msg += '\nНе удалось сопоставить (оставлено пустым):\n' + unresolved.join('\n');
     window.alert(msg);
   }).catch(showError);
 }
@@ -925,14 +934,13 @@ function registerNotificationForProduct(g, btn) {
     IssueDate: inputValueToDate(dateVal),
     Product: g.rawProductId,
     ProductName: comp ? comp.name : (g.unassignedName || ''),
-    DocumentDesignations: list.map(function (item) {
-      return item.designation + (item.version != null ? '#' + item.version : '');
-    }).join('\n') + '\n',
+    DocumentDesignations: state.designationsColumnIsRef
+      ? toRefListValue(list.map(function (item) { return item.id; }))
+      : list.map(function (item) {
+          return item.designation + (item.version != null ? '#' + item.version : '');
+        }).join('\n') + '\n',
     ChangeReason: computeChangeReasonText(list)
   };
-  if (state.refColumnReady) {
-    fields[REF_COL_ID] = toRefListValue(list.map(function (item) { return item.id; }));
-  }
   btn.disabled = true;
   grist.selectedTable.create({ fields: fields }).then(function (result) {
     var newId = (result && typeof result.id !== 'undefined') ? result.id : (Array.isArray(result) ? result[0].id : undefined);
@@ -1161,9 +1169,10 @@ function editableRow(r) {
     }
     var fields = {
       ChangeReason: taReason.value.trim(),
-      DocumentDesignations: lines.length ? (lines.join('\n') + '\n') : ''
+      DocumentDesignations: state.designationsColumnIsRef
+        ? toRefListValue(ids)
+        : (lines.length ? (lines.join('\n') + '\n') : '')
     };
-    if (state.refColumnReady) fields[REF_COL_ID] = toRefListValue(ids);
     grist.selectedTable.update({ id: r.id, fields: fields }).then(function () {
       editingId = null;
     }).catch(showError);
@@ -1187,7 +1196,7 @@ function checkSvg() { return '<svg width="11" height="11" viewBox="0 0 24 24" fi
 function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
 document.getElementById('btnRefreshDocs').addEventListener('click', loadInventoryBook);
-document.getElementById('btnMigrateRefs').addEventListener('click', migrateLegacyDesignations);
+document.getElementById('btnMigrateRefs').addEventListener('click', convertDesignationsColumnToRef);
 
 var EYE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
 var EYE_OFF_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M2 2l20 20"/></svg>';

@@ -186,9 +186,6 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
         <svg class="reg-filter-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input class="reg-filter-input" id="regFilterInput" placeholder="Фильтр по номеру, изделию, документам…" oninput="renderRegistry()">
       </div>
-      <button class="icon-btn" id="btnMigrateRefs" title="Преобразовать колонку DocumentDesignations в ссылки на inventory_book (необратимо, показывает предпросмотр)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-      </button>
     </div>
     <div id="regBody"></div>
   </div>
@@ -200,7 +197,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.20.0</footer>
+<footer class="ver-footer">v0.20.1</footer>
 
 <script>
 'use strict';
@@ -271,10 +268,8 @@ grist.onRecords(function (records) {
   rebuildAllProductGroups();
 });
 
-// Resolve this widget's own bound tableId once, so applyUserActions calls
-// (convertDesignationsColumnToRef) can target it — grist.selectedTable
-// .create/update resolve the binding automatically, but raw
-// applyUserActions needs the real tableId string.
+// Resolve this widget's own bound tableId once, needed to look up
+// DocumentDesignations' current column type in detectDesignationsColumnType.
 if (grist.docApi.listTables) {
   grist.docApi.listTables().then(function (allTables) {
     state.noticeTableId = resolveTableId(NOTICE_TABLE_CANDIDATES, allTables);
@@ -417,15 +412,13 @@ function loadInventoryBook() {
 // ---------- DocumentDesignations as a real Grist Reference List → inventory_book ----------
 //
 // DocumentDesignations used to be a plain Text column storing a custom
-// "designation#version" encoding (one per line). The user wants the column
-// itself to hold real Grist links, not a UI trick and not a parallel
-// column — so this is a genuine in-place type change (ModifyColumn Text ->
-// RefList) on convertDesignationsColumnToRef(), triggered explicitly by the
-// user (a confirm dialog shows a preview first — this touches every
-// existing row of a live shared table, so it must never run silently).
-// Until that runs, the column is still Text and everything here falls back
-// to parsing/writing the legacy string format — see
-// state.designationsColumnIsRef.
+// "designation#version" encoding (one per line). It is converted to a real
+// RefList:inventory_book column directly against the live doc (outside the
+// widget — see repo notes), not through any in-widget import/migration
+// feature. This code only adapts transparently to whichever type the
+// column actually is right now (state.designationsColumnIsRef, detected
+// via detectDesignationsColumnType) so the widget keeps working before,
+// during, and after that external fix.
 
 function toRefListValue(ids) {
   return ['L'].concat(ids);
@@ -492,73 +485,6 @@ function findInventoryRowForToken(tok) {
     return candidates.filter(function (row) { return Number(row.changeNumber) === parsed.version; })[0] || null;
   }
   return candidates.slice().sort(function (a, b) { return Number(b.changeNumber) - Number(a.changeNumber); })[0];
-}
-
-// Explicit, user-triggered, one-time conversion of DocumentDesignations
-// itself from Text to RefList:inventory_book. Resolves every existing
-// record's legacy text BEFORE touching the schema, then sends the
-// ModifyColumn together with every record's recomputed value as ONE
-// applyUserActions batch — Grist applies a batch atomically, so there is no
-// intermediate state where the column has changed type but rows haven't
-// been repopulated yet. Records with unresolved tokens end up with an
-// empty ref list for those tokens (never guessed) and are listed in the
-// report. Per house rule: preview + explicit confirm before any bulk
-// modify of a live shared table.
-function convertDesignationsColumnToRef() {
-  if (state.designationsColumnIsRef) { window.alert('DocumentDesignations уже является колонкой-ссылкой.'); return; }
-  if (!state.noticeTableId || !state.inventoryTableId) { window.alert('Таблицы ещё не определены, попробуйте через секунду.'); return; }
-
-  var perRecordIds = {};
-  var unresolved = [];
-  var recordsWithDocs = 0;
-  state.records.forEach(function (r) {
-    var tokens = splitDesignations(r.DocumentDesignations);
-    if (!tokens.length) return;
-    recordsWithDocs++;
-    var ids = [];
-    tokens.forEach(function (tok) {
-      var row = findInventoryRowForToken(tok);
-      if (row) ids.push(row.id);
-      else unresolved.push('№' + (r.Number || r.id) + ': ' + tok);
-    });
-    perRecordIds[r.id] = ids;
-  });
-
-  var preview = 'Колонка DocumentDesignations будет преобразована из текста в ссылки (RefList) на inventory_book.\n' +
-    'Затронет все ' + state.records.length + ' извещений (' + recordsWithDocs + ' с документами).\n' +
-    (unresolved.length
-      ? 'Не удалось сопоставить ' + unresolved.length + ' обозначений (останутся без ссылки):\n' + unresolved.slice(0, 20).join('\n') + (unresolved.length > 20 ? '\n…' : '')
-      : 'Все обозначения успешно сопоставлены с inventory_book.') +
-    '\n\nЭто изменение живой таблицы. Продолжить?';
-  if (!window.confirm(preview)) return;
-
-  Promise.all([
-    grist.docApi.fetchTable('_grist_Tables'),
-    grist.docApi.fetchTable('_grist_Tables_column')
-  ]).then(function (res) {
-    var metaTables = res[0], metaCols = res[1];
-    var tIdx = (metaTables.tableId || []).indexOf(state.inventoryTableId);
-    var inventoryTableRef = tIdx !== -1 ? metaTables.id[tIdx] : null;
-    var visibleCol = 0;
-    if (inventoryTableRef) {
-      for (var i = 0; i < (metaCols.id || []).length; i++) {
-        if (metaCols.parentId[i] === inventoryTableRef && String(metaCols.colId[i]).toLowerCase() === 'documentdesignation') {
-          visibleCol = metaCols.id[i];
-          break;
-        }
-      }
-    }
-    var actions = [['ModifyColumn', state.noticeTableId, 'DocumentDesignations', { type: 'RefList:' + state.inventoryTableId, visibleCol: visibleCol }]];
-    Object.keys(perRecordIds).forEach(function (recId) {
-      actions.push(['UpdateRecord', state.noticeTableId, Number(recId), { DocumentDesignations: toRefListValue(perRecordIds[recId]) }]);
-    });
-    return grist.docApi.applyUserActions(actions);
-  }).then(function () {
-    state.designationsColumnIsRef = true;
-    var msg = 'Готово: колонка DocumentDesignations теперь хранит ссылки.';
-    if (unresolved.length) msg += '\nНе удалось сопоставить (оставлено пустым):\n' + unresolved.join('\n');
-    window.alert(msg);
-  }).catch(showError);
 }
 
 // ---------- Products list (auto-pulled from inventory_book) ----------
@@ -1196,7 +1122,6 @@ function checkSvg() { return '<svg width="11" height="11" viewBox="0 0 24 24" fi
 function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
 document.getElementById('btnRefreshDocs').addEventListener('click', loadInventoryBook);
-document.getElementById('btnMigrateRefs').addEventListener('click', convertDesignationsColumnToRef);
 
 var EYE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
 var EYE_OFF_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M2 2l20 20"/></svg>';

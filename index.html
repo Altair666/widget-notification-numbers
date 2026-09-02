@@ -197,7 +197,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.20.1</footer>
+<footer class="ver-footer">v0.20.2</footer>
 
 <script>
 'use strict';
@@ -900,11 +900,19 @@ function pluralDocs(n) {
   return 'документов';
 }
 
+function noticeNumberSortKey(r) {
+  var m = /\.(\d+)\s*-\s*(\d+)/.exec(String(r.Number || ''));
+  if (m) return [parseInt(m[2], 10), parseInt(m[1], 10)];
+  return [r.IssueDate || 0, r.id || 0];
+}
+
 function renderRegistry() {
   regCount.textContent = state.records.length;
   var q = (regFilterInput.value || '').trim().toLowerCase();
   var rows = state.records.slice().sort(function (a, b) {
-    return (b.id || 0) - (a.id || 0);
+    var ka = noticeNumberSortKey(a), kb = noticeNumberSortKey(b);
+    if (ka[0] !== kb[0]) return ka[0] - kb[0];
+    return ka[1] - kb[1];
   });
   if (q) {
     rows = rows.filter(function (r) {

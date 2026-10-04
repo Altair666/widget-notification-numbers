@@ -87,7 +87,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 /* ── Products accordion ── */
 #productsList{display:flex;flex-direction:column;gap:6px;margin-top:12px}
 .prod-item{border:1px solid var(--brd);border-radius:var(--r);background:var(--surf2);overflow:hidden}
-.prod-header{display:flex;align-items:center;gap:10px;padding:12px;cursor:pointer;user-select:none;transition:background .12s}
+.prod-header{display:flex;align-items:center;gap:10px;padding:7px 7px 7px 12px;cursor:pointer;user-select:none;transition:background .12s}
 .prod-header:hover{background:var(--surf3)}
 .prod-chevron{display:flex;align-items:center;color:var(--tx3);transition:transform .15s;flex-shrink:0}
 .prod-chevron.on{transform:rotate(90deg)}
@@ -100,7 +100,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .prod-body{border-top:1px solid var(--brd);background:var(--surf);padding:0}
 
 #regBody{overflow-x:auto}
-.reg-table{width:100%;border-collapse:collapse;font-size:12px}
+.reg-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
 .reg-table th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);padding:5px 8px;border-bottom:2px solid var(--brd);text-align:center;background:var(--surf2);white-space:nowrap}
 .reg-table td{padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:top;text-align:center}
 .reg-table tr:last-child td{border-bottom:none}
@@ -137,8 +137,8 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-filter-input:focus{border-color:var(--acc)}
 .reg-filter-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none}
 
-.reg-actions{white-space:nowrap;width:30px}
-.reg-dl,.reg-dl-head{white-space:nowrap;width:26px;padding-left:4px!important;padding-right:4px!important}
+.reg-actions{white-space:nowrap}
+.reg-dl,.reg-dl-head{white-space:nowrap;padding-left:4px!important;padding-right:4px!important}
 .reg-dl-head{color:var(--red-br)}
 .reg-dl-head svg{display:block;margin:0 auto}
 .cell-edit-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid transparent;border-radius:4pt;background:transparent;color:#E07B1F;cursor:pointer;flex-shrink:0;transition:all .1s;padding:0}
@@ -197,6 +197,12 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
         </div>
       </div>
 
+      <div class="form-row" style="grid-template-columns:130px 130px 76px;margin-bottom:6px">
+        <div></div>
+        <button class="btn-secondary" id="btnToggleAllProducts" type="button" style="width:100%">Развернуть список</button>
+        <div></div>
+      </div>
+
       <div id="productsList"><div class="gen-empty">Загрузка…</div></div>
 
     </div>
@@ -233,7 +239,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.24.0</footer>
+<footer class="ver-footer">v0.25.0</footer>
 
 <script>
 'use strict';
@@ -699,9 +705,7 @@ function rebuildAllProductGroups() {
   renderProductsList();
 }
 
-function renderProductsList() {
-  updateNoticeNumberPreview();
-  var el = document.getElementById('productsList');
+function getVisibleProductGroups() {
   var groups = state.productGroups.filter(function (g) {
     return !isProductHidden(g.productId) || state.showHidden;
   });
@@ -713,6 +717,14 @@ function renderProductsList() {
       })
       .filter(function (g) { return g.list.length > 0; });
   }
+  return groups;
+}
+
+function renderProductsList() {
+  updateNoticeNumberPreview();
+  var el = document.getElementById('productsList');
+  var groups = getVisibleProductGroups();
+  syncToggleAllProductsBtn();
   if (!groups.length) {
     el.innerHTML = '<div class="gen-empty">Нет изделий с новыми документами для извещения</div>';
     return;
@@ -1087,9 +1099,12 @@ function renderRegistry() {
   var table = document.createElement('table');
   table.className = 'reg-table';
   table.innerHTML =
+    '<colgroup><col style="width:4%"><col style="width:10%"><col style="width:9%"><col style="width:7%">' +
+    '<col style="width:19%"><col style="width:47%"><col style="width:4%"></colgroup>' +
     '<thead><tr>' +
-    '<th style="width:9%">№ извещения</th><th style="width:9%">Дата выпуска</th><th style="width:7%">Изделие</th><th style="text-align:left;width:17%">Обозначение</th>' +
-    '<th class="reg-dl-head" title="Скачать извещение">' + downloadSvg() + '</th><th style="text-align:left;width:32%">Причина изменения</th><th></th>' +
+    '<th class="reg-dl-head" title="Скачать извещение">' + downloadSvg() + '</th>' +
+    '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th style="text-align:left">Обозначение</th>' +
+    '<th style="text-align:left">Причина изменения</th><th></th>' +
     '</tr></thead><tbody></tbody>';
   var tbody = table.querySelector('tbody');
 
@@ -1133,6 +1148,7 @@ function renderRegistry() {
 
     if (!expanded) {
       var tr = document.createElement('tr');
+      tr.appendChild(buildDownloadNoticeCell(1));
       tr.appendChild(buildNumCell(1));
 
       var tdDate = document.createElement('td');
@@ -1150,8 +1166,6 @@ function renderRegistry() {
       tdDn.innerHTML = '<span class="tag tag-blue">' + docs.length + ' ' + pluralDocs(docs.length) + '</span>';
       tdDn.addEventListener('click', toggleNotice);
       tr.appendChild(tdDn);
-
-      tr.appendChild(buildDownloadNoticeCell(1));
 
       var tdReason = document.createElement('td');
       tdReason.className = 'reg-reason'; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded, toggleNotice));
@@ -1174,6 +1188,7 @@ function renderRegistry() {
       var tr = document.createElement('tr');
 
       if (idx === 0) {
+        tr.appendChild(buildDownloadNoticeCell(rowSpan));
         tr.appendChild(buildNumCell(rowSpan));
 
         var tdDate = document.createElement('td');
@@ -1190,8 +1205,6 @@ function renderRegistry() {
       tr.appendChild(tdDn);
 
       if (idx === 0) {
-        tr.appendChild(buildDownloadNoticeCell(rowSpan));
-
         var tdReason = document.createElement('td');
         tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded, toggleNotice));
         tr.appendChild(tdReason);
@@ -1215,6 +1228,9 @@ function renderRegistry() {
 function editableRow(r) {
   var frag = document.createDocumentFragment();
 
+  var tdDl = document.createElement('td');
+  frag.appendChild(tdDl);
+
   var tdNum = document.createElement('td');
   tdNum.className = 'reg-dn'; tdNum.textContent = r.Number || '';
   frag.appendChild(tdNum);
@@ -1228,7 +1244,7 @@ function editableRow(r) {
   frag.appendChild(tdProduct);
 
   var tdDocs = document.createElement('td');
-  tdDocs.className = 'reg-docs'; tdDocs.colSpan = 2;
+  tdDocs.className = 'reg-docs';
   var taDocs = document.createElement('textarea');
   taDocs.className = 'form-textarea';
   taDocs.value = resolveDocsForRecord(r).map(function (d) {
@@ -1300,6 +1316,22 @@ function checkSvg() { return '<svg width="11" height="11" viewBox="0 0 24 24" fi
 function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
 document.getElementById('btnRefreshDocs').addEventListener('click', loadInventoryBook);
+
+var btnToggleAllProducts = document.getElementById('btnToggleAllProducts');
+function syncToggleAllProductsBtn() {
+  var groups = getVisibleProductGroups();
+  var allExpanded = groups.length > 0 && groups.every(function (g) { return !!state.expandedProductIds[g.productId]; });
+  btnToggleAllProducts.textContent = allExpanded ? 'Свернуть список' : 'Развернуть список';
+}
+btnToggleAllProducts.addEventListener('click', function () {
+  var groups = getVisibleProductGroups();
+  var allExpanded = groups.length > 0 && groups.every(function (g) { return !!state.expandedProductIds[g.productId]; });
+  groups.forEach(function (g) {
+    if (allExpanded) delete state.expandedProductIds[g.productId];
+    else state.expandedProductIds[g.productId] = true;
+  });
+  renderProductsList();
+});
 
 var EYE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
 var EYE_OFF_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M2 2l20 20"/></svg>';

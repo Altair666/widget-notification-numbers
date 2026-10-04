@@ -16,6 +16,7 @@
   --grn:#0D6E4E;--grn-bg:#ECFDF5;--grn-brd:#A7F3D0;
   --warn:#92400E;--warn-bg:#FFFBEB;--warn-brd:#FCD34D;
   --red:#991B1B;--red-bg:#FEF2F2;--red-brd:#FECACA;
+  --red-br:#DC2626;
   --mono:'IBM Plex Mono',monospace;
   --sans:'IBM Plex Sans',sans-serif;
   --r:4pt;--r2:4pt;
@@ -106,7 +107,8 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-table tr:hover td{background:var(--surf2)}
 .reg-dn{font-family:var(--mono);font-size:11px;color:var(--acc);white-space:nowrap}
 .reg-docs{text-align:left;white-space:pre-wrap;font-family:var(--mono);font-size:11px;max-width:220px;word-break:break-word;overflow-wrap:anywhere}
-.reg-reason{text-align:left;white-space:pre-wrap;max-width:240px;word-break:break-word;overflow-wrap:anywhere}
+.reg-reason{text-align:left;white-space:pre-wrap;max-width:360px;word-break:break-word;overflow-wrap:anywhere}
+.reg-product{word-break:break-word;overflow-wrap:anywhere}
 .reg-note-text.clamped{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .reg-empty{padding:16px;text-align:center;color:var(--tx3);font-size:12px}
 .reg-num-toggle{display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
@@ -115,6 +117,9 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-chevron.on{transform:rotate(90deg)}
 .reg-num-toggle:hover .reg-chevron{color:var(--acc)}
 .reg-doc-count{white-space:nowrap}
+.clickable{cursor:pointer}
+.clickable:hover{color:var(--acc)}
+.reg-doc-count.clickable:hover .tag-blue{background:var(--acc);color:#fff}
 .reg-filter-bar{padding:8px 12px;background:var(--surf2);border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:8px;position:sticky;top:32px;z-index:4}
 .reg-filter-wrap{position:relative;flex:1}
 .reg-ph{gap:10px}
@@ -134,11 +139,11 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 
 .reg-actions{white-space:nowrap;width:30px}
 .reg-dl,.reg-dl-head{white-space:nowrap;width:26px;padding-left:4px!important;padding-right:4px!important}
-.reg-dl-head{color:var(--red)}
+.reg-dl-head{color:var(--red-br)}
 .reg-dl-head svg{display:block;margin:0 auto}
 .cell-edit-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid transparent;border-radius:4pt;background:transparent;color:#E07B1F;cursor:pointer;flex-shrink:0;transition:all .1s;padding:0}
-.dl-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid transparent;border-radius:4pt;background:transparent;color:var(--red);cursor:pointer;flex-shrink:0;transition:all .1s;padding:0}
-.dl-btn:hover{background:var(--red-bg);color:var(--red);border-color:var(--red-brd)}
+.dl-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid transparent;border-radius:4pt;background:transparent;color:var(--red-br);cursor:pointer;flex-shrink:0;transition:all .1s;padding:0}
+.dl-btn:hover{background:var(--red-bg);color:var(--red-br);border-color:var(--red-brd)}
 .icon-btn:disabled,.cell-edit-btn:disabled,.dl-btn:disabled{opacity:.35;cursor:not-allowed}
 .cell-edit-btn:hover{background:#FFF4E6;color:#C5651A;border-color:#F5D4A0}
 .cell-edit-btn.save{color:var(--grn)}
@@ -228,7 +233,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.23.0</footer>
+<footer class="ver-footer">v0.24.0</footer>
 
 <script>
 'use strict';
@@ -1026,12 +1031,17 @@ var editingId = null;
 // Причина изменения длиннее 2 строк сворачивается (line-clamp), чтобы не
 // растягивать строку таблицы. Разворачивается той же стрелкой слева у номера
 // извещения — см. toggleNotice()/state.expandedNoticeIds в renderRegistry().
-function buildReasonCell(r, needsToggle, expanded) {
+function buildReasonCell(r, needsToggle, expanded, onToggle) {
   var frag = document.createDocumentFragment();
   var text = r.ChangeReason || '';
   var textEl = document.createElement('div');
   textEl.className = 'reg-note-text' + (needsToggle && !expanded ? ' clamped' : '');
   textEl.textContent = text;
+  if (needsToggle) {
+    textEl.classList.add('clickable');
+    textEl.title = expanded ? 'Свернуть' : 'Показать полностью';
+    textEl.addEventListener('click', onToggle);
+  }
   frag.appendChild(textEl);
   return frag;
 }
@@ -1078,8 +1088,8 @@ function renderRegistry() {
   table.className = 'reg-table';
   table.innerHTML =
     '<thead><tr>' +
-    '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th style="text-align:left">Обозначение</th>' +
-    '<th class="reg-dl-head" title="Скачать извещение">' + downloadSvg() + '</th><th style="text-align:left">Причина изменения</th><th></th>' +
+    '<th style="width:9%">№ извещения</th><th style="width:9%">Дата выпуска</th><th style="width:7%">Изделие</th><th style="text-align:left;width:17%">Обозначение</th>' +
+    '<th class="reg-dl-head" title="Скачать извещение">' + downloadSvg() + '</th><th style="text-align:left;width:32%">Причина изменения</th><th></th>' +
     '</tr></thead><tbody></tbody>';
   var tbody = table.querySelector('tbody');
 
@@ -1130,18 +1140,21 @@ function renderRegistry() {
       tr.appendChild(tdDate);
 
       var tdProduct = document.createElement('td');
+      tdProduct.className = 'reg-product';
       tdProduct.textContent = productLabelForRecord(r);
       tr.appendChild(tdProduct);
 
       var tdDn = document.createElement('td');
-      tdDn.className = 'reg-docs reg-doc-count';
+      tdDn.className = 'reg-docs reg-doc-count clickable';
+      tdDn.title = 'Развернуть';
       tdDn.innerHTML = '<span class="tag tag-blue">' + docs.length + ' ' + pluralDocs(docs.length) + '</span>';
+      tdDn.addEventListener('click', toggleNotice);
       tr.appendChild(tdDn);
 
       tr.appendChild(buildDownloadNoticeCell(1));
 
       var tdReason = document.createElement('td');
-      tdReason.className = 'reg-reason'; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded));
+      tdReason.className = 'reg-reason'; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded, toggleNotice));
       tr.appendChild(tdReason);
 
       var tdActions = document.createElement('td');
@@ -1168,7 +1181,7 @@ function renderRegistry() {
         tr.appendChild(tdDate);
 
         var tdProduct = document.createElement('td');
-        tdProduct.rowSpan = rowSpan; tdProduct.textContent = productLabelForRecord(r);
+        tdProduct.className = 'reg-product'; tdProduct.rowSpan = rowSpan; tdProduct.textContent = productLabelForRecord(r);
         tr.appendChild(tdProduct);
       }
 
@@ -1180,7 +1193,7 @@ function renderRegistry() {
         tr.appendChild(buildDownloadNoticeCell(rowSpan));
 
         var tdReason = document.createElement('td');
-        tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded));
+        tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded, toggleNotice));
         tr.appendChild(tdReason);
 
         var tdActions = document.createElement('td');

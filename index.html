@@ -108,7 +108,9 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-docs{text-align:left;white-space:pre-wrap;font-family:var(--mono);font-size:11px;max-width:220px;word-break:break-word;overflow-wrap:anywhere}
 .reg-reason{text-align:left;white-space:pre-wrap;max-width:240px;word-break:break-word;overflow-wrap:anywhere}
 .reg-note-text.clamped{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
-.reg-note-toggle{margin-top:2px;padding:0;border:none;background:none;font-size:10px;color:var(--acc);cursor:pointer;text-decoration:underline}
+.reg-note-toggle{display:flex;justify-content:flex-end;width:100%;margin-top:2px;padding:0;border:none;background:none;cursor:pointer;color:var(--tx3)}
+.reg-note-toggle:hover{color:var(--acc)}
+.reg-note-toggle:hover .reg-chevron{color:var(--acc)}
 .reg-empty{padding:16px;text-align:center;color:var(--tx3);font-size:12px}
 .reg-num-toggle{display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
 .reg-num-toggle:hover{color:var(--acc)}
@@ -135,6 +137,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 
 .reg-actions{white-space:nowrap;width:30px}
 .cell-edit-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid transparent;border-radius:4pt;background:transparent;color:#E07B1F;cursor:pointer;flex-shrink:0;transition:all .1s;padding:0}
+.icon-btn:disabled,.cell-edit-btn:disabled{opacity:.35;cursor:not-allowed}
 .cell-edit-btn:hover{background:#FFF4E6;color:#C5651A;border-color:#F5D4A0}
 .cell-edit-btn.save{color:var(--grn)}
 .cell-edit-btn.save:hover{background:var(--grn-bg);color:var(--grn);border-color:var(--grn-brd)}
@@ -223,7 +226,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.21.0</footer>
+<footer class="ver-footer">v0.22.0</footer>
 
 <script>
 'use strict';
@@ -235,7 +238,8 @@ var NOTICE_TABLE_CANDIDATES = ['Notice_of_change'];
 var DEFAULT_OPTIONS = {
   componentsTableId: '',
   inventoryTableId: '',
-  hiddenDocs: {}
+  hiddenDocs: {},
+  hideZeroPending: false
 };
 
 var state = {
@@ -296,6 +300,8 @@ grist.onOptions(function (options) {
   optionsLoadedOnce = true;
   state.options = Object.assign({}, DEFAULT_OPTIONS, options || {});
   state.hiddenKeys = state.options.hiddenDocs || {};
+  state.hideZeroPending = !!state.options.hideZeroPending;
+  syncHideZeroBtn();
   if (first || state.options.componentsTableId !== prevComponentsId) loadComponents();
   if (first || state.options.inventoryTableId !== prevInventoryId) loadInventoryBook();
   renderProductsList();
@@ -1036,7 +1042,9 @@ function buildReasonCell(r) {
     var toggleBtn = document.createElement('button');
     toggleBtn.type = 'button';
     toggleBtn.className = 'reg-note-toggle';
-    toggleBtn.textContent = expanded ? 'Свернуть' : 'Показать полностью';
+    toggleBtn.title = expanded ? 'Свернуть' : 'Показать полностью';
+    toggleBtn.innerHTML = '<span class="reg-chevron' + (expanded ? ' on' : '') +
+      '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>';
     toggleBtn.addEventListener('click', function () {
       if (expanded) delete expandedReasonIds[r.id]; else expandedReasonIds[r.id] = true;
       renderRegistry();
@@ -1087,7 +1095,7 @@ function renderRegistry() {
   table.innerHTML =
     '<thead><tr>' +
     '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th style="text-align:left">Обозначение</th>' +
-    '<th>№ изменения</th><th style="text-align:left">Причина изменения</th><th></th>' +
+    '<th>Скачать извещение</th><th style="text-align:left">Причина изменения</th><th></th>' +
     '</tr></thead><tbody></tbody>';
   var tbody = table.querySelector('tbody');
 
@@ -1141,9 +1149,7 @@ function renderRegistry() {
       tdDn.innerHTML = '<span class="tag tag-blue">' + docs.length + ' ' + pluralDocs(docs.length) + '</span>';
       tr.appendChild(tdDn);
 
-      var tdVer = document.createElement('td');
-      tdVer.textContent = '—';
-      tr.appendChild(tdVer);
+      tr.appendChild(buildDownloadNoticeCell(1));
 
       var tdReason = document.createElement('td');
       tdReason.className = 'reg-reason'; tdReason.appendChild(buildReasonCell(r));
@@ -1181,11 +1187,9 @@ function renderRegistry() {
       tdDn.className = 'reg-docs'; tdDn.textContent = doc.designation;
       tr.appendChild(tdDn);
 
-      var tdVer = document.createElement('td');
-      tdVer.textContent = doc.version != null ? doc.version : '';
-      tr.appendChild(tdVer);
-
       if (idx === 0) {
+        tr.appendChild(buildDownloadNoticeCell(rowSpan));
+
         var tdReason = document.createElement('td');
         tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.appendChild(buildReasonCell(r));
         tr.appendChild(tdReason);
@@ -1280,6 +1284,15 @@ function iconButton(cls, svg, title) {
   return btn;
 }
 function pencilSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>'; }
+function downloadSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 21h16"/></svg>'; }
+function buildDownloadNoticeCell(rowSpan) {
+  var td = document.createElement('td');
+  td.className = 'reg-actions'; td.rowSpan = rowSpan;
+  var btn = iconButton('cell-edit-btn', downloadSvg(), 'Генерация бланка извещения в разработке');
+  btn.disabled = true;
+  td.appendChild(btn);
+  return td;
+}
 function checkSvg() { return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>'; }
 function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
@@ -1301,11 +1314,15 @@ var ZERO_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" str
 var ZERO_OFF_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="\'IBM Plex Mono\',monospace" stroke="none" fill="currentColor">0</text><line x1="5" y1="19" x2="19" y2="5"/></svg>';
 
 var btnHideZero = document.getElementById('btnHideZero');
-btnHideZero.addEventListener('click', function () {
-  state.hideZeroPending = !state.hideZeroPending;
+function syncHideZeroBtn() {
   btnHideZero.classList.toggle('on', state.hideZeroPending);
   btnHideZero.title = state.hideZeroPending ? 'Показать документы с изм. 0' : 'Скрыть документы с изм. 0 (исходный выпуск)';
   btnHideZero.innerHTML = state.hideZeroPending ? ZERO_OFF_ICON : ZERO_ICON;
+}
+btnHideZero.addEventListener('click', function () {
+  state.hideZeroPending = !state.hideZeroPending;
+  syncHideZeroBtn();
+  grist.setOption('hideZeroPending', state.hideZeroPending);
   renderProductsList();
 });
 

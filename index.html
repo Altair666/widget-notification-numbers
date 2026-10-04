@@ -33,6 +33,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .panel{background:var(--surf);border:1px solid var(--brd);border-radius:0;flex-shrink:0}
 .panel+.panel{border-top:none}
 .ph{display:flex;align-items:center;justify-content:space-between;height:32px;padding:0 12px;border-bottom:1px solid var(--brd);background:var(--surf2)}
+.ph.reg-ph{position:sticky;top:0;z-index:5;justify-content:flex-start}
 .ph-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2)}
 .pb{padding:10px 12px}
 
@@ -106,6 +107,8 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-dn{font-family:var(--mono);font-size:11px;color:var(--acc);white-space:nowrap}
 .reg-docs{text-align:left;white-space:pre-wrap;font-family:var(--mono);font-size:11px;max-width:220px;word-break:break-word;overflow-wrap:anywhere}
 .reg-reason{text-align:left;white-space:pre-wrap;max-width:240px;word-break:break-word;overflow-wrap:anywhere}
+.reg-note-text.clamped{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.reg-note-toggle{margin-top:2px;padding:0;border:none;background:none;font-size:10px;color:var(--acc);cursor:pointer;text-decoration:underline}
 .reg-empty{padding:16px;text-align:center;color:var(--tx3);font-size:12px}
 .reg-num-toggle{display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
 .reg-num-toggle:hover{color:var(--acc)}
@@ -113,8 +116,19 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-chevron.on{transform:rotate(90deg)}
 .reg-num-toggle:hover .reg-chevron{color:var(--acc)}
 .reg-doc-count{white-space:nowrap}
-.reg-filter-bar{padding:8px 12px;background:var(--surf2);border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:8px}
+.reg-filter-bar{padding:8px 12px;background:var(--surf2);border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:8px;position:sticky;top:32px;z-index:4}
 .reg-filter-wrap{position:relative;flex:1}
+.reg-ph{gap:10px}
+.reg-year-wrap{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;margin-left:24px}
+.reg-year-bar{display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none}
+.reg-year-bar::-webkit-scrollbar{display:none}
+.reg-year-chip{flex-shrink:0;font-family:var(--mono);font-size:10px;padding:2px 9px;border-radius:10px;background:var(--surf3);color:var(--tx2);cursor:pointer;border:1px solid transparent;white-space:nowrap;user-select:none;transition:all .12s}
+.reg-year-chip:hover{background:var(--brd2)}
+.reg-year-chip.active{background:var(--grn-bg);color:var(--grn);border-color:var(--grn-brd)}
+.reg-scroll-btn{border-radius:50%;border:1px solid var(--brd);background:var(--surf);color:var(--grn);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.16);transition:opacity .15s ease,visibility .15s ease}
+.reg-scroll-btn:hover{background:var(--grn-bg);border-color:var(--grn)}
+.reg-scroll-btn.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.reg-year-scroll-btn{position:static;flex-shrink:0;width:18px;height:18px;transform:none}
 .reg-filter-input{width:100%;height:28px;border:1px solid var(--brd);border-radius:var(--r);padding:0 9px 0 28px;font-family:inherit;font-size:12px;background:#fff;outline:none;color:var(--tx)}
 .reg-filter-input:focus{border-color:var(--acc)}
 .reg-filter-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none}
@@ -166,6 +180,9 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
             <button class="icon-btn form-date-btn" id="btnToggleHidden" title="Показать скрытые">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
+            <button class="icon-btn form-date-btn" id="btnHideZero" title="Скрыть документы с изм. 0 (исходный выпуск)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="'IBM Plex Mono',monospace" stroke="none" fill="currentColor">0</text></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -177,8 +194,17 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 
   <!-- REGISTRY -->
   <div class="panel">
-    <div class="ph">
+    <div class="ph reg-ph">
       <span class="ph-title">Реестр извещений</span>
+      <div class="reg-year-wrap" id="regYearWrap">
+        <button class="reg-scroll-btn reg-year-scroll-btn reg-scroll-left hidden" id="regYearScrollLeft" title="Прокрутить влево" type="button">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="reg-year-bar" id="regYearBar"></div>
+        <button class="reg-scroll-btn reg-year-scroll-btn reg-scroll-right hidden" id="regYearScrollRight" title="Прокрутить вправо" type="button">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
       <span class="tag tag-blue" id="regCount"></span>
     </div>
     <div class="reg-filter-bar">
@@ -197,7 +223,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.20.1</footer>
+<footer class="ver-footer">v0.21.0</footer>
 
 <script>
 'use strict';
@@ -234,6 +260,9 @@ var state = {
 
   hiddenKeys: {},   // productId -> true, persisted in Grist widget options (options.hiddenDocs)
   showHidden: false, // whether hidden product groups are currently revealed in the accordion (view-only toggle)
+  hideZeroPending: false, // view-only toggle: hide pending-registration items with ChangeNumber 0 (исходный выпуск, not a real change)
+
+  regYearFilter: null, // число года или null («Все») — фильтр реестра по году IssueDate, см. баблы в шапке реестра
 
   productGroups: []      // [{productId, comp, list: [{designation, version, reason}, ...]}, ...]
 };
@@ -241,6 +270,18 @@ var state = {
 function setConn(ok, label) {
   document.getElementById('connDot').className = 'conn-dot' + (ok ? ' ok' : '');
   document.getElementById('connLbl').textContent = label;
+}
+
+function pluralizeRu(n, one, few, many) {
+  var mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
+}
+
+function updateConnLabel() {
+  var total = state.records.length;
+  setConn(true, total + ' ' + pluralizeRu(total, 'извещение', 'извещения', 'извещений'));
 }
 
 // ---------- Grist wiring ----------
@@ -261,9 +302,10 @@ grist.onOptions(function (options) {
 });
 
 grist.onRecords(function (records) {
-  setConn(true, 'Подключено к Grist');
   state.recordsLoaded = true;
   state.records = records;
+  updateConnLabel();
+  renderRegYearBar();
   renderRegistry();
   rebuildAllProductGroups();
 });
@@ -650,6 +692,14 @@ function renderProductsList() {
   var groups = state.productGroups.filter(function (g) {
     return !isProductHidden(g.productId) || state.showHidden;
   });
+  if (state.hideZeroPending) {
+    groups = groups
+      .map(function (g) {
+        var list = g.list.filter(function (item) { return Number(item.version) !== 0; });
+        return list.length === g.list.length ? g : Object.assign({}, g, { list: list });
+      })
+      .filter(function (g) { return g.list.length > 0; });
+  }
   if (!groups.length) {
     el.innerHTML = '<div class="gen-empty">Нет изделий с новыми документами для извещения</div>';
     return;
@@ -828,6 +878,85 @@ function inputValueToDate(s) {
   return Math.floor(new Date(s + 'T00:00:00Z').getTime() / 1000);
 }
 
+function dateToYear(v) {
+  if (v == null || v === '') return null;
+  var d = (typeof v === 'number') ? new Date(v * 1000) : new Date(v);
+  if (isNaN(d.getTime())) return null;
+  return d.getUTCFullYear();
+}
+
+// Баблы-годы в шапке реестра: диапазон считается от самого раннего года среди
+// уже зарегистрированных извещений до ТЕКУЩЕГО года системных часов — новый
+// бабл на следующий календарный год появляется сам, без правки кода.
+function renderRegYearBar() {
+  var bar = document.getElementById('regYearBar');
+  if (!bar) return;
+  var prevScroll = bar.scrollLeft;
+  var nowYear = new Date().getFullYear();
+  var minYear = nowYear;
+  var maxYear = nowYear;
+  state.records.forEach(function (r) {
+    var y = dateToYear(r.IssueDate);
+    if (y == null) return;
+    if (y < minYear) minYear = y;
+    if (y > maxYear) maxYear = y;
+  });
+  bar.innerHTML = '';
+  var allChip = document.createElement('span');
+  allChip.className = 'reg-year-chip' + (state.regYearFilter == null ? ' active' : '');
+  allChip.textContent = 'Все';
+  allChip.addEventListener('click', function () { setRegYearFilter(null); });
+  bar.appendChild(allChip);
+  for (var y = maxYear; y >= minYear; y--) {
+    (function (year) {
+      var chip = document.createElement('span');
+      chip.className = 'reg-year-chip' + (state.regYearFilter === year ? ' active' : '');
+      chip.textContent = String(year);
+      chip.addEventListener('click', function () { setRegYearFilter(year); });
+      bar.appendChild(chip);
+    })(y);
+  }
+  bar.scrollLeft = prevScroll;
+  updateRegYearScrollBtns();
+}
+
+function setRegYearFilter(year) {
+  state.regYearFilter = year;
+  renderRegYearBar();
+  renderRegistry();
+}
+
+(function initRegYearWheel() {
+  var bar = document.getElementById('regYearBar');
+  if (!bar) return;
+  bar.addEventListener('wheel', function (e) {
+    if (!e.deltaY) return;
+    e.preventDefault();
+    bar.scrollLeft += e.deltaY;
+  }, { passive: false });
+})();
+
+function updateRegYearScrollBtns() {
+  var bar = document.getElementById('regYearBar');
+  var left = document.getElementById('regYearScrollLeft');
+  var right = document.getElementById('regYearScrollRight');
+  if (!bar || !left || !right) return;
+  var canScroll = bar.scrollWidth - bar.clientWidth > 1;
+  left.classList.toggle('hidden', !canScroll || bar.scrollLeft <= 0);
+  right.classList.toggle('hidden', !canScroll || bar.scrollLeft >= bar.scrollWidth - bar.clientWidth - 1);
+}
+
+(function initRegYearScroller() {
+  var bar = document.getElementById('regYearBar');
+  var left = document.getElementById('regYearScrollLeft');
+  var right = document.getElementById('regYearScrollRight');
+  if (!bar || !left || !right) return;
+  bar.addEventListener('scroll', updateRegYearScrollBtns);
+  window.addEventListener('resize', updateRegYearScrollBtns);
+  left.addEventListener('click', function () { bar.scrollBy({ left: -120, behavior: 'smooth' }); });
+  right.addEventListener('click', function () { bar.scrollBy({ left: 120, behavior: 'smooth' }); });
+})();
+
 // ---------- Numbering ----------
 
 function computeNextNumber(prefix, year) {
@@ -886,6 +1015,36 @@ var regBody = document.getElementById('regBody');
 var regCount = document.getElementById('regCount');
 var regFilterInput = document.getElementById('regFilterInput');
 var editingId = null;
+var expandedReasonIds = {}; // id записи -> true, если причина изменения (>4 строк) развёрнута пользователем
+
+// Причина изменения длиннее 4 строк сворачивается (line-clamp), чтобы не
+// растягивать строку таблицы; развёрнутое состояние запоминается per-запись
+// в expandedReasonIds, чтобы не схлопывалось при каждом renderRegistry().
+function buildReasonCell(r) {
+  var frag = document.createDocumentFragment();
+  var text = r.ChangeReason || '';
+  var lineCount = text ? text.split('\n').length : 0;
+  var needsToggle = lineCount > 4;
+  var expanded = !!expandedReasonIds[r.id];
+
+  var textEl = document.createElement('div');
+  textEl.className = 'reg-note-text' + (needsToggle && !expanded ? ' clamped' : '');
+  textEl.textContent = text;
+  frag.appendChild(textEl);
+
+  if (needsToggle) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'reg-note-toggle';
+    toggleBtn.textContent = expanded ? 'Свернуть' : 'Показать полностью';
+    toggleBtn.addEventListener('click', function () {
+      if (expanded) delete expandedReasonIds[r.id]; else expandedReasonIds[r.id] = true;
+      renderRegistry();
+    });
+    frag.appendChild(toggleBtn);
+  }
+  return frag;
+}
 
 function productLabelForRecord(r) {
   if (r.ProductName) return r.ProductName;
@@ -913,6 +1072,9 @@ function renderRegistry() {
         .map(function (v) { return String(v || '').toLowerCase(); }).join(' ');
       return hay.indexOf(q) !== -1;
     });
+  }
+  if (state.regYearFilter != null) {
+    rows = rows.filter(function (r) { return dateToYear(r.IssueDate) === state.regYearFilter; });
   }
 
   if (!rows.length) {
@@ -984,7 +1146,7 @@ function renderRegistry() {
       tr.appendChild(tdVer);
 
       var tdReason = document.createElement('td');
-      tdReason.className = 'reg-reason'; tdReason.textContent = r.ChangeReason || '';
+      tdReason.className = 'reg-reason'; tdReason.appendChild(buildReasonCell(r));
       tr.appendChild(tdReason);
 
       var tdActions = document.createElement('td');
@@ -1025,7 +1187,7 @@ function renderRegistry() {
 
       if (idx === 0) {
         var tdReason = document.createElement('td');
-        tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.textContent = r.ChangeReason || '';
+        tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.appendChild(buildReasonCell(r));
         tr.appendChild(tdReason);
 
         var tdActions = document.createElement('td');
@@ -1132,6 +1294,18 @@ btnToggleHidden.addEventListener('click', function () {
   btnToggleHidden.classList.toggle('on', state.showHidden);
   btnToggleHidden.title = state.showHidden ? 'Скрыть показ скрытых' : 'Показать скрытые';
   btnToggleHidden.innerHTML = state.showHidden ? EYE_OFF_ICON : EYE_ICON;
+  renderProductsList();
+});
+
+var ZERO_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="\'IBM Plex Mono\',monospace" stroke="none" fill="currentColor">0</text></svg>';
+var ZERO_OFF_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="\'IBM Plex Mono\',monospace" stroke="none" fill="currentColor">0</text><line x1="5" y1="19" x2="19" y2="5"/></svg>';
+
+var btnHideZero = document.getElementById('btnHideZero');
+btnHideZero.addEventListener('click', function () {
+  state.hideZeroPending = !state.hideZeroPending;
+  btnHideZero.classList.toggle('on', state.hideZeroPending);
+  btnHideZero.title = state.hideZeroPending ? 'Показать документы с изм. 0' : 'Скрыть документы с изм. 0 (исходный выпуск)';
+  btnHideZero.innerHTML = state.hideZeroPending ? ZERO_OFF_ICON : ZERO_ICON;
   renderProductsList();
 });
 

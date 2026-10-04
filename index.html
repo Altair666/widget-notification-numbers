@@ -106,14 +106,16 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-table tr:last-child td{border-bottom:none}
 .reg-table tr:hover td{background:var(--surf2)}
 .reg-dn{font-family:var(--mono);font-size:11px;color:var(--acc);white-space:nowrap}
-.reg-docs{text-align:left;white-space:pre-wrap;font-family:var(--mono);font-size:11px;max-width:220px;word-break:break-word;overflow-wrap:anywhere}
-.reg-reason{text-align:left;white-space:pre-wrap;max-width:360px;word-break:break-word;overflow-wrap:anywhere}
+.reg-docs{text-align:left!important;white-space:pre-wrap;font-family:var(--mono);font-size:11px;max-width:220px;word-break:break-word;overflow-wrap:anywhere}
+.reg-reason{text-align:left!important;white-space:pre-wrap;max-width:360px;word-break:break-word;overflow-wrap:anywhere}
 .reg-product{word-break:break-word;overflow-wrap:anywhere}
 .reg-note-text.clamped{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .reg-empty{padding:16px;text-align:center;color:var(--tx3);font-size:12px}
 .reg-num-toggle{display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
+.reg-num-toggle.no-toggle{cursor:default}
 .reg-num-toggle:hover{color:var(--acc)}
-.reg-chevron{display:inline-flex;align-items:center;color:var(--tx3);transition:transform .15s;flex-shrink:0}
+.reg-num-toggle.no-toggle:hover{color:inherit}
+.reg-chevron{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;color:var(--tx3);transition:transform .15s;flex-shrink:0}
 .reg-chevron.on{transform:rotate(90deg)}
 .reg-num-toggle:hover .reg-chevron{color:var(--acc)}
 .reg-doc-count{white-space:nowrap}
@@ -172,7 +174,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
     </div>
     <div class="pb">
 
-      <div class="form-row" style="grid-template-columns:130px 130px 76px">
+      <div class="form-row" style="grid-template-columns:130px 130px 76px 1fr">
         <div class="form-group">
           <label class="form-label">№ извещения</label>
           <div class="form-input mono formed-num" id="fNoticeNum">—</div>
@@ -195,12 +197,10 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
             </button>
           </div>
         </div>
-      </div>
-
-      <div class="form-row" style="grid-template-columns:130px 130px 76px;margin-bottom:6px">
-        <div></div>
-        <button class="btn-secondary" id="btnToggleAllProducts" type="button" style="width:100%">Развернуть список</button>
-        <div></div>
+        <div class="form-group" style="align-items:flex-end">
+          <label class="form-label">&nbsp;</label>
+          <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:auto;padding:8px 16px">Показать список</button>
+        </div>
       </div>
 
       <div id="productsList"><div class="gen-empty">Загрузка…</div></div>
@@ -239,7 +239,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.25.0</footer>
+<footer class="ver-footer">v0.26.0</footer>
 
 <script>
 'use strict';
@@ -271,6 +271,7 @@ var state = {
   designationsColumnIsRef: false, // whether DocumentDesignations is already RefList (see detectDesignationsColumnType)
 
   expandedProductIds: {}, // productId -> true, which accordion items are open
+  showProductsList: false, // view-only, NOT persisted: hides/shows the entire #productsList block at once
   previewProductId: null, // productId whose № извещения preview is shown at the top of the form
 
   expandedNoticeIds: {},  // recordId -> true, which registry notices are expanded (collapsed by default when multi-doc)
@@ -723,8 +724,12 @@ function getVisibleProductGroups() {
 function renderProductsList() {
   updateNoticeNumberPreview();
   var el = document.getElementById('productsList');
-  var groups = getVisibleProductGroups();
   syncToggleAllProductsBtn();
+  if (!state.showProductsList) {
+    el.innerHTML = '';
+    return;
+  }
+  var groups = getVisibleProductGroups();
   if (!groups.length) {
     el.innerHTML = '<div class="gen-empty">Нет изделий с новыми документами для извещения</div>';
     return;
@@ -1043,16 +1048,16 @@ var editingId = null;
 // Причина изменения длиннее 2 строк сворачивается (line-clamp), чтобы не
 // растягивать строку таблицы. Разворачивается той же стрелкой слева у номера
 // извещения — см. toggleNotice()/state.expandedNoticeIds в renderRegistry().
-function buildReasonCell(r, needsToggle, expanded, onToggle) {
+function buildReasonCell(r, needsToggle, expanded, onExpand) {
   var frag = document.createDocumentFragment();
   var text = r.ChangeReason || '';
   var textEl = document.createElement('div');
   textEl.className = 'reg-note-text' + (needsToggle && !expanded ? ' clamped' : '');
   textEl.textContent = text;
-  if (needsToggle) {
+  if (needsToggle && !expanded) {
     textEl.classList.add('clickable');
-    textEl.title = expanded ? 'Свернуть' : 'Показать полностью';
-    textEl.addEventListener('click', onToggle);
+    textEl.title = 'Показать полностью';
+    textEl.addEventListener('click', onExpand);
   }
   frag.appendChild(textEl);
   return frag;
@@ -1099,8 +1104,8 @@ function renderRegistry() {
   var table = document.createElement('table');
   table.className = 'reg-table';
   table.innerHTML =
-    '<colgroup><col style="width:4%"><col style="width:10%"><col style="width:9%"><col style="width:7%">' +
-    '<col style="width:19%"><col style="width:47%"><col style="width:4%"></colgroup>' +
+    '<colgroup><col style="width:2%"><col style="width:10%"><col style="width:9%"><col style="width:7%">' +
+    '<col style="width:19%"><col style="width:49%"><col style="width:4%"></colgroup>' +
     '<thead><tr>' +
     '<th class="reg-dl-head" title="Скачать извещение">' + downloadSvg() + '</th>' +
     '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th style="text-align:left">Обозначение</th>' +
@@ -1131,17 +1136,28 @@ function renderRegistry() {
       renderRegistry();
     }
 
+    function expandNotice() {
+      if (!state.expandedNoticeIds[r.id]) {
+        state.expandedNoticeIds[r.id] = true;
+        renderRegistry();
+      }
+    }
+
     function buildNumCell(rowSpan) {
       var tdNum = document.createElement('td');
       tdNum.className = 'reg-dn'; tdNum.rowSpan = rowSpan;
-      if (!hasToggle) { tdNum.textContent = r.Number || ''; return tdNum; }
       var toggle = document.createElement('span');
       toggle.className = 'reg-num-toggle';
-      toggle.title = rowToggled ? 'Свернуть' : 'Развернуть';
-      toggle.innerHTML = '<span class="reg-chevron' + (rowToggled ? ' on' : '') +
-        '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span>';
+      toggle.innerHTML = '<span class="reg-chevron' + (rowToggled ? ' on' : '') + '">' +
+        (hasToggle ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>' : '') +
+        '</span>';
       toggle.appendChild(document.createTextNode(r.Number || ''));
-      toggle.addEventListener('click', toggleNotice);
+      if (hasToggle) {
+        toggle.title = rowToggled ? 'Свернуть' : 'Развернуть';
+        toggle.addEventListener('click', toggleNotice);
+      } else {
+        toggle.classList.add('no-toggle');
+      }
       tdNum.appendChild(toggle);
       return tdNum;
     }
@@ -1164,11 +1180,11 @@ function renderRegistry() {
       tdDn.className = 'reg-docs reg-doc-count clickable';
       tdDn.title = 'Развернуть';
       tdDn.innerHTML = '<span class="tag tag-blue">' + docs.length + ' ' + pluralDocs(docs.length) + '</span>';
-      tdDn.addEventListener('click', toggleNotice);
+      tdDn.addEventListener('click', expandNotice);
       tr.appendChild(tdDn);
 
       var tdReason = document.createElement('td');
-      tdReason.className = 'reg-reason'; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded, toggleNotice));
+      tdReason.className = 'reg-reason'; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded, expandNotice));
       tr.appendChild(tdReason);
 
       var tdActions = document.createElement('td');
@@ -1206,7 +1222,7 @@ function renderRegistry() {
 
       if (idx === 0) {
         var tdReason = document.createElement('td');
-        tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded, toggleNotice));
+        tdReason.className = 'reg-reason'; tdReason.rowSpan = rowSpan; tdReason.appendChild(buildReasonCell(r, reasonNeedsToggle, reasonExpanded, expandNotice));
         tr.appendChild(tdReason);
 
         var tdActions = document.createElement('td');
@@ -1319,17 +1335,10 @@ document.getElementById('btnRefreshDocs').addEventListener('click', loadInventor
 
 var btnToggleAllProducts = document.getElementById('btnToggleAllProducts');
 function syncToggleAllProductsBtn() {
-  var groups = getVisibleProductGroups();
-  var allExpanded = groups.length > 0 && groups.every(function (g) { return !!state.expandedProductIds[g.productId]; });
-  btnToggleAllProducts.textContent = allExpanded ? 'Свернуть список' : 'Развернуть список';
+  btnToggleAllProducts.textContent = state.showProductsList ? 'Скрыть список' : 'Показать список';
 }
 btnToggleAllProducts.addEventListener('click', function () {
-  var groups = getVisibleProductGroups();
-  var allExpanded = groups.length > 0 && groups.every(function (g) { return !!state.expandedProductIds[g.productId]; });
-  groups.forEach(function (g) {
-    if (allExpanded) delete state.expandedProductIds[g.productId];
-    else state.expandedProductIds[g.productId] = true;
-  });
+  state.showProductsList = !state.showProductsList;
   renderProductsList();
 });
 

@@ -142,7 +142,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-filter-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none}
 
 .reg-actions{white-space:nowrap}
-.reg-dl,.reg-dl-head{white-space:nowrap;text-align:center!important;padding-left:4px!important;padding-right:4px!important;width:28px!important;max-width:28px!important;box-sizing:border-box!important}
+.reg-dl,.reg-dl-head{white-space:nowrap;text-align:center!important;padding-left:0!important;padding-right:0!important;width:28px!important;max-width:28px!important;box-sizing:border-box!important}
 .reg-dl-head{color:var(--red-br)}
 .reg-dl-head svg{display:block;margin:0 auto}
 .reg-dl-wrap{display:flex;align-items:center;justify-content:center;width:100%}
@@ -160,6 +160,14 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .tag{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:4pt}
 .tag-blue{background:var(--acc-bg);color:var(--acc)}
 .tag-muted{background:var(--surf3);color:var(--tx2)}
+.docs-editor{display:flex;flex-direction:column;gap:3px;margin-bottom:4px;text-align:left}
+.docs-editor-row{display:flex;align-items:center;justify-content:space-between;gap:6px;background:var(--surf2);border:1px solid var(--brd);border-radius:4pt;padding:3px 6px;font-family:var(--mono);font-size:11px}
+.docs-editor-label{text-align:left;word-break:break-word;overflow-wrap:anywhere}
+.docs-editor-remove{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0 2px;flex-shrink:0}
+.docs-editor-remove:hover{color:var(--red-br)}
+.docs-editor-add{margin-top:2px}
+.docs-editor-select{width:100%;height:26px;border:1px solid var(--brd);border-radius:var(--r);background:#f7f7f7;padding:0 6px;font-family:inherit;font-size:11px;color:var(--tx);outline:none}
+.docs-editor-select:focus{border-color:var(--acc);background:var(--surf)}
 
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -242,7 +250,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.5</footer>
+<footer class="ver-footer">v0.26.6</footer>
 
 <script>
 'use strict';
@@ -1224,7 +1232,7 @@ function renderRegistry() {
       }
 
       var tdDn = document.createElement('td');
-      tdDn.className = 'reg-docs'; tdDn.textContent = doc.designation;
+      tdDn.className = 'reg-docs'; tdDn.textContent = doc.designation + (doc.version != null ? ' #' + doc.version : '');
       tr.appendChild(tdDn);
 
       if (idx === 0) {
@@ -1268,13 +1276,99 @@ function editableRow(r) {
 
   var tdDocs = document.createElement('td');
   tdDocs.className = 'reg-docs';
-  var taDocs = document.createElement('textarea');
-  taDocs.className = 'form-textarea';
-  taDocs.value = resolveDocsForRecord(r).map(function (d) {
-    return d.version != null ? (d.designation + '#' + d.version) : d.designation;
-  }).join('\n');
-  taDocs.title = 'Каждый документ на отдельной строке, должен существовать в inventory_book. Номер изменения — через "#", например: RU.ЛМАП.502900-01 34 01#4 (без "#" берётся последняя версия).';
-  tdDocs.appendChild(taDocs);
+
+  // Resolves a doc entry (from resolveDocsForRecord, or a freshly-picked
+  // inventory_book row) to the inventory_book row id, when one can be
+  // determined — used only for dedup/"already linked elsewhere" filtering,
+  // never required for saving (legacy text mode saves designation+version
+  // strings regardless).
+  function inventoryIdForDoc(d) {
+    if (d.id != null) return d.id;
+    var match = findInventoryRowForToken(d.version != null ? (d.designation + '#' + d.version) : d.designation);
+    return match ? match.id : null;
+  }
+
+  var currentDocs = resolveDocsForRecord(r).filter(function (d) { return d.designation; }).map(function (d) {
+    return { designation: d.designation, version: d.version, invId: inventoryIdForDoc(d) };
+  });
+
+  // Inventory rows already linked to OTHER notices (this notice's own current
+  // links are excluded, so removing a doc here and re-adding it in the same
+  // edit still finds it — it was never "taken" from this notice's own point
+  // of view).
+  var takenIds = {};
+  state.records.forEach(function (rec) {
+    if (rec.id === r.id) return;
+    resolveDocsForRecord(rec).forEach(function (d) {
+      var invId = inventoryIdForDoc(d);
+      if (invId != null) takenIds[invId] = true;
+    });
+  });
+
+  var docsList = document.createElement('div');
+  docsList.className = 'docs-editor';
+  var addWrap = document.createElement('div');
+  addWrap.className = 'docs-editor-add';
+
+  function renderDocsList() {
+    docsList.innerHTML = '';
+    currentDocs.forEach(function (doc, idx) {
+      var row = document.createElement('div');
+      row.className = 'docs-editor-row';
+      var label = document.createElement('span');
+      label.className = 'docs-editor-label';
+      label.textContent = doc.designation + (doc.version != null ? ' #' + doc.version : '');
+      row.appendChild(label);
+      var rmBtn = document.createElement('button');
+      rmBtn.type = 'button'; rmBtn.className = 'docs-editor-remove'; rmBtn.textContent = '×'; rmBtn.title = 'Удалить';
+      rmBtn.addEventListener('click', function () {
+        currentDocs.splice(idx, 1);
+        renderDocsList();
+        renderAddPicker();
+      });
+      row.appendChild(rmBtn);
+      docsList.appendChild(row);
+    });
+  }
+
+  function renderAddPicker() {
+    addWrap.innerHTML = '';
+    var usedIds = {};
+    currentDocs.forEach(function (d) { if (d.invId != null) usedIds[d.invId] = true; });
+    var available = state.inventoryRows.filter(function (row) {
+      return !takenIds[row.id] && !usedIds[row.id];
+    }).slice().sort(function (a, b) {
+      return String(a.designation).localeCompare(String(b.designation), undefined, { numeric: true });
+    });
+
+    var select = document.createElement('select');
+    select.className = 'docs-editor-select';
+    var placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = available.length ? '+ добавить документ…' : 'Нет доступных документов';
+    select.appendChild(placeholder);
+    available.forEach(function (row) {
+      var opt = document.createElement('option');
+      opt.value = String(row.id);
+      opt.textContent = row.designation + ' #' + row.changeNumber;
+      select.appendChild(opt);
+    });
+    select.addEventListener('change', function () {
+      var id = Number(select.value);
+      if (!id) return;
+      var invRow = state.inventoryById[id];
+      if (!invRow) return;
+      currentDocs.push({ designation: invRow.designation, version: invRow.changeNumber, invId: invRow.id });
+      renderDocsList();
+      renderAddPicker();
+    });
+    addWrap.appendChild(select);
+  }
+
+  renderDocsList();
+  renderAddPicker();
+  tdDocs.appendChild(docsList);
+  tdDocs.appendChild(addWrap);
   frag.appendChild(tdDocs);
 
   var tdReason = document.createElement('td');
@@ -1288,23 +1382,15 @@ function editableRow(r) {
   tdActions.className = 'reg-actions';
   var saveBtn = iconButton('cell-edit-btn save', checkSvg(), 'Сохранить');
   saveBtn.addEventListener('click', function () {
-    var lines = taDocs.value.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
-    var ids = [];
-    var unresolved = [];
-    lines.forEach(function (line) {
-      var row = findInventoryRowForToken(line);
-      if (row) ids.push(row.id);
-      else unresolved.push(line);
-    });
-    if (unresolved.length) {
-      window.alert('Не найдено в inventory_book: ' + unresolved.join(', ') + '\nПроверьте обозначение и номер изменения.');
-      return;
-    }
     var fields = {
       ChangeReason: taReason.value.trim(),
       DocumentDesignations: state.designationsColumnIsRef
-        ? toRefListValue(ids)
-        : (lines.length ? (lines.join('\n') + '\n') : '')
+        ? toRefListValue(currentDocs.map(function (d) { return d.invId; }).filter(function (id) { return id != null; }))
+        : (currentDocs.length
+            ? (currentDocs.map(function (d) {
+                return d.version != null ? (d.designation + '#' + d.version) : d.designation;
+              }).join('\n') + '\n')
+            : '')
     };
     grist.selectedTable.update({ id: r.id, fields: fields }).then(function () {
       editingId = null;

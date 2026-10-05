@@ -140,7 +140,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-filter-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none}
 
 .reg-actions{white-space:nowrap}
-.reg-dl,.reg-dl-head{white-space:nowrap;padding-left:4px!important;padding-right:4px!important}
+.reg-dl,.reg-dl-head{white-space:nowrap;text-align:center!important;padding-left:4px!important;padding-right:4px!important}
 .reg-dl-head{color:var(--red-br)}
 .reg-dl-head svg{display:block;margin:0 auto}
 .cell-edit-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid transparent;border-radius:4pt;background:transparent;color:#E07B1F;cursor:pointer;flex-shrink:0;transition:all .1s;padding:0}
@@ -239,7 +239,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.0</footer>
+<footer class="ver-footer">v0.26.1</footer>
 
 <script>
 'use strict';
@@ -1104,12 +1104,12 @@ function renderRegistry() {
   var table = document.createElement('table');
   table.className = 'reg-table';
   table.innerHTML =
-    '<colgroup><col style="width:2%"><col style="width:10%"><col style="width:9%"><col style="width:7%">' +
-    '<col style="width:19%"><col style="width:49%"><col style="width:4%"></colgroup>' +
+    '<colgroup><col style="width:1%"><col style="width:10%"><col style="width:9%"><col style="width:7%">' +
+    '<col style="width:20%"><col style="width:49%"><col style="width:4%"></colgroup>' +
     '<thead><tr>' +
     '<th class="reg-dl-head" title="Скачать извещение">' + downloadSvg() + '</th>' +
-    '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th style="text-align:left">Обозначение</th>' +
-    '<th style="text-align:left">Причина изменения</th><th></th>' +
+    '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th>Обозначение</th>' +
+    '<th>Причина изменения</th><th></th>' +
     '</tr></thead><tbody></tbody>';
   var tbody = table.querySelector('tbody');
 

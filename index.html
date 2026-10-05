@@ -166,8 +166,9 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .docs-editor-remove{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0 2px;flex-shrink:0}
 .docs-editor-remove:hover{color:var(--red-br)}
 .docs-editor-add{margin-top:2px}
-.docs-editor-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;width:100%;height:26px;border:1px solid var(--brd);border-radius:var(--r);background:#f7f7f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239E9C94' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 6px center;padding:0 24px 0 6px;font-family:inherit;font-size:11px;color:var(--tx);outline:none;cursor:pointer}
-.docs-editor-select:focus{border-color:var(--acc);background-color:var(--surf)}
+.docs-editor-search{width:100%;height:26px;border:1px solid var(--brd);border-radius:var(--r);background:#f7f7f7;padding:0 6px;font-family:inherit;font-size:11px;color:var(--tx);outline:none;box-sizing:border-box}
+.docs-editor-search:focus{border-color:var(--acc);background:var(--surf)}
+.docs-editor-search[disabled]{background:var(--surf3);color:var(--tx2);cursor:default}
 
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -250,7 +251,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.7</footer>
+<footer class="ver-footer">v0.26.8</footer>
 
 <script>
 'use strict';
@@ -1341,28 +1342,41 @@ function editableRow(r) {
       return String(a.designation).localeCompare(String(b.designation), undefined, { numeric: true });
     });
 
-    var select = document.createElement('select');
-    select.className = 'docs-editor-select';
-    var placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = available.length ? '+ добавить документ…' : 'Нет доступных документов';
-    select.appendChild(placeholder);
+    var byLabel = {};
     available.forEach(function (row) {
-      var opt = document.createElement('option');
-      opt.value = String(row.id);
-      opt.textContent = row.designation + ' изм.' + row.changeNumber;
-      select.appendChild(opt);
+      byLabel[row.designation + ' изм.' + row.changeNumber] = row;
     });
-    select.addEventListener('change', function () {
-      var id = Number(select.value);
-      if (!id) return;
-      var invRow = state.inventoryById[id];
-      if (!invRow) return;
-      currentDocs.push({ designation: invRow.designation, version: invRow.changeNumber, invId: invRow.id });
+
+    var datalistId = 'docs-editor-dl-' + r.id;
+    var datalist = document.createElement('datalist');
+    datalist.id = datalistId;
+    Object.keys(byLabel).forEach(function (label) {
+      var opt = document.createElement('option');
+      opt.value = label;
+      datalist.appendChild(opt);
+    });
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'docs-editor-search';
+    input.setAttribute('list', datalistId);
+    input.placeholder = available.length ? 'Введите обозначение…' : 'Нет доступных документов';
+    input.disabled = !available.length;
+    input.autocomplete = 'off';
+    // Adds a doc only once the typed/picked text exactly matches an existing
+    // inventory_book designation+version — free text never gets saved.
+    input.addEventListener('input', function () {
+      var match = byLabel[input.value];
+      if (!match) return;
+      currentDocs.push({ designation: match.designation, version: match.changeNumber, invId: match.id });
       renderDocsList();
       renderAddPicker();
     });
-    addWrap.appendChild(select);
+    input.addEventListener('blur', function () {
+      if (input.value && !byLabel[input.value]) input.value = '';
+    });
+    addWrap.appendChild(input);
+    addWrap.appendChild(datalist);
   }
 
   renderDocsList();

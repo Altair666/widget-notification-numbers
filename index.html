@@ -166,9 +166,15 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .docs-editor-remove{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0 2px;flex-shrink:0}
 .docs-editor-remove:hover{color:var(--red-br)}
 .docs-editor-add{margin-top:2px}
-.docs-editor-search{width:100%;height:26px;border:1px solid var(--brd);border-radius:var(--r);background:#f7f7f7;padding:0 6px;font-family:inherit;font-size:11px;color:var(--tx);outline:none;box-sizing:border-box}
-.docs-editor-search:focus{border-color:var(--acc);background:var(--surf)}
-.docs-editor-search[disabled]{background:var(--surf3);color:var(--tx2);cursor:default}
+.docs-editor-combo{position:relative}
+.docs-editor-search{width:100%;height:26px;border:1px solid var(--brd);border-radius:var(--r);background:#f7f7f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239E9C94' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 6px center;padding:0 24px 0 6px;font-family:inherit;font-size:11px;color:var(--tx);outline:none;box-sizing:border-box}
+.docs-editor-search:focus{border-color:var(--acc);background-color:var(--surf)}
+.docs-editor-search[disabled]{background-color:var(--surf3);color:var(--tx2);cursor:default}
+.docs-editor-dropdown{display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);max-height:170px;overflow-y:auto;z-index:30;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.docs-editor-dropdown.open{display:block}
+.docs-editor-option{padding:5px 8px;font-family:var(--mono);font-size:11px;color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.docs-editor-option:hover{background:var(--acc-bg);color:var(--acc)}
+.docs-editor-option-empty{padding:5px 8px;font-size:11px;color:var(--tx2);cursor:default}
 
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -211,7 +217,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
         </div>
         <div class="form-group" style="align-items:flex-end">
           <label class="form-label">&nbsp;</label>
-          <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:auto;padding:8px 16px">Показать список</button>
+          <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:155px;padding:8px 16px;margin-right:7px">Показать список</button>
         </div>
       </div>
 
@@ -251,7 +257,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.8</footer>
+<footer class="ver-footer">v0.26.9</footer>
 
 <script>
 'use strict';
@@ -1342,41 +1348,68 @@ function editableRow(r) {
       return String(a.designation).localeCompare(String(b.designation), undefined, { numeric: true });
     });
 
-    var byLabel = {};
-    available.forEach(function (row) {
-      byLabel[row.designation + ' изм.' + row.changeNumber] = row;
-    });
+    function labelFor(row) { return row.designation + ' изм.' + row.changeNumber; }
 
-    var datalistId = 'docs-editor-dl-' + r.id;
-    var datalist = document.createElement('datalist');
-    datalist.id = datalistId;
-    Object.keys(byLabel).forEach(function (label) {
-      var opt = document.createElement('option');
-      opt.value = label;
-      datalist.appendChild(opt);
-    });
+    var combo = document.createElement('div');
+    combo.className = 'docs-editor-combo';
 
     var input = document.createElement('input');
     input.type = 'text';
     input.className = 'docs-editor-search';
-    input.setAttribute('list', datalistId);
     input.placeholder = available.length ? 'Введите обозначение…' : 'Нет доступных документов';
     input.disabled = !available.length;
     input.autocomplete = 'off';
-    // Adds a doc only once the typed/picked text exactly matches an existing
-    // inventory_book designation+version — free text never gets saved.
+
+    var dropdown = document.createElement('div');
+    dropdown.className = 'docs-editor-dropdown';
+
+    // Dropdown is built from scratch on every open/keystroke, filtered by the
+    // typed text — picking an option is the only way to add a doc, so free
+    // text that matches nothing never gets saved.
+    function renderDropdown() {
+      var q = input.value.trim().toLowerCase();
+      var matches = available.filter(function (row) {
+        return !q || labelFor(row).toLowerCase().indexOf(q) !== -1;
+      });
+      dropdown.innerHTML = '';
+      if (!matches.length) {
+        var empty = document.createElement('div');
+        empty.className = 'docs-editor-option-empty';
+        empty.textContent = 'Ничего не найдено';
+        dropdown.appendChild(empty);
+      } else {
+        matches.forEach(function (row) {
+          var opt = document.createElement('div');
+          opt.className = 'docs-editor-option';
+          opt.textContent = labelFor(row);
+          // mousedown (not click) fires before the input's blur, so the pick
+          // registers before the dropdown gets hidden.
+          opt.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            currentDocs.push({ designation: row.designation, version: row.changeNumber, invId: row.id });
+            renderDocsList();
+            renderAddPicker();
+          });
+          dropdown.appendChild(opt);
+        });
+      }
+    }
+
+    input.addEventListener('focus', function () {
+      renderDropdown();
+      dropdown.classList.add('open');
+    });
     input.addEventListener('input', function () {
-      var match = byLabel[input.value];
-      if (!match) return;
-      currentDocs.push({ designation: match.designation, version: match.changeNumber, invId: match.id });
-      renderDocsList();
-      renderAddPicker();
+      renderDropdown();
+      dropdown.classList.add('open');
     });
     input.addEventListener('blur', function () {
-      if (input.value && !byLabel[input.value]) input.value = '';
+      dropdown.classList.remove('open');
     });
-    addWrap.appendChild(input);
-    addWrap.appendChild(datalist);
+
+    combo.appendChild(input);
+    combo.appendChild(dropdown);
+    addWrap.appendChild(combo);
   }
 
   renderDocsList();

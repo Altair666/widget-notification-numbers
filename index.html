@@ -117,6 +117,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-num-toggle.no-toggle{cursor:default}
 .reg-num-toggle:hover{color:var(--acc)}
 .reg-num-toggle.no-toggle:hover{color:inherit}
+.reg-num-text{user-select:text;-webkit-user-select:text;cursor:text}
 .reg-chevron{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;color:var(--tx3);transition:transform .15s;flex-shrink:0}
 .reg-chevron.on{transform:rotate(90deg)}
 .reg-num-toggle:hover .reg-chevron{color:var(--acc)}
@@ -255,7 +256,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.10</footer>
+<footer class="ver-footer">v0.26.11</footer>
 
 <script>
 'use strict';
@@ -1096,9 +1097,14 @@ function pluralDocs(n) {
 }
 
 function renderRegistry() {
-  regCount.textContent = state.records.length;
+  // Records with no Number assigned yet are blank placeholders (e.g. a row
+  // started directly in the Grist grid, never filled via "Зарегистрировать")
+  // — nothing to show for them, and with no IssueDate they'd sort to the very
+  // bottom of the list and only be hidden by a year filter, never by "Все".
+  var allRecords = state.records.filter(function (r) { return r.Number; });
+  regCount.textContent = allRecords.length;
   var q = (regFilterInput.value || '').trim().toLowerCase();
-  var rows = state.records.slice().sort(function (a, b) {
+  var rows = allRecords.slice().sort(function (a, b) {
     var diff = (b.IssueDate || 0) - (a.IssueDate || 0);
     if (diff) return diff;
     return String(b.Number || '').localeCompare(String(a.Number || ''), undefined, { numeric: true });
@@ -1116,7 +1122,7 @@ function renderRegistry() {
   }
 
   if (!rows.length) {
-    regBody.innerHTML = '<div class="reg-empty">' + (state.records.length ? 'Ничего не найдено' : 'Извещений пока нет — заполните форму выше') + '</div>';
+    regBody.innerHTML = '<div class="reg-empty">' + (allRecords.length ? 'Ничего не найдено' : 'Извещений пока нет — заполните форму выше') + '</div>';
     return;
   }
 
@@ -1170,10 +1176,19 @@ function renderRegistry() {
       toggle.innerHTML = '<span class="reg-chevron' + (rowToggled ? ' on' : '') + '">' +
         (hasToggle ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>' : '') +
         '</span>';
-      toggle.appendChild(document.createTextNode(r.Number || ''));
+      var numText = document.createElement('span');
+      numText.className = 'reg-num-text';
+      numText.textContent = r.Number || '';
+      toggle.appendChild(numText);
       if (hasToggle) {
         toggle.title = rowToggled ? 'Свернуть' : 'Развернуть';
-        toggle.addEventListener('click', toggleNotice);
+        toggle.addEventListener('click', function () {
+          // A drag-selection over the (now selectable) number text also lands
+          // on this element — don't collapse/expand the row in that case.
+          var sel = window.getSelection();
+          if (sel && sel.toString()) return;
+          toggleNotice();
+        });
       } else {
         toggle.classList.add('no-toggle');
       }

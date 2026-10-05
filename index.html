@@ -166,12 +166,10 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .docs-editor-remove{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0 2px;flex-shrink:0}
 .docs-editor-remove:hover{color:var(--red-br)}
 .docs-editor-add{margin-top:2px}
-.docs-editor-combo{position:relative}
 .docs-editor-search{width:100%;height:26px;border:1px solid var(--brd);border-radius:var(--r);background:#f7f7f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239E9C94' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 6px center;padding:0 24px 0 6px;font-family:inherit;font-size:11px;color:var(--tx);outline:none;box-sizing:border-box}
 .docs-editor-search:focus{border-color:var(--acc);background-color:var(--surf)}
 .docs-editor-search[disabled]{background-color:var(--surf3);color:var(--tx2);cursor:default}
-.docs-editor-dropdown{display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);max-height:170px;overflow-y:auto;z-index:30;box-shadow:0 4px 12px rgba(0,0,0,.12)}
-.docs-editor-dropdown.open{display:block}
+.docs-editor-dropdown{position:fixed;background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);max-height:170px;overflow-y:auto;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.12)}
 .docs-editor-option{padding:5px 8px;font-family:var(--mono);font-size:11px;color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .docs-editor-option:hover{background:var(--acc-bg);color:var(--acc)}
 .docs-editor-option-empty{padding:5px 8px;font-size:11px;color:var(--tx2);cursor:default}
@@ -257,7 +255,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.9</footer>
+<footer class="ver-footer">v0.26.10</footer>
 
 <script>
 'use strict';
@@ -1360,13 +1358,51 @@ function editableRow(r) {
     input.disabled = !available.length;
     input.autocomplete = 'off';
 
-    var dropdown = document.createElement('div');
-    dropdown.className = 'docs-editor-dropdown';
+    // The dropdown is appended to document.body (not to combo) and position:fixed,
+    // so it escapes the registry table's overflow/scroll clipping and any local
+    // stacking context instead of rendering clipped/behind the table. It is
+    // created on focus and fully removed from the DOM on close — never left
+    // sitting hidden in body — so repeated open/close cycles can't leak nodes.
+    var dropdown = null;
+    var repositionHandler = null;
 
-    // Dropdown is built from scratch on every open/keystroke, filtered by the
-    // typed text — picking an option is the only way to add a doc, so free
-    // text that matches nothing never gets saved.
-    function renderDropdown() {
+    function closeDropdown() {
+      if (dropdown && dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
+      dropdown = null;
+      if (repositionHandler) {
+        window.removeEventListener('scroll', repositionHandler, true);
+        window.removeEventListener('resize', repositionHandler);
+        repositionHandler = null;
+      }
+    }
+
+    function positionDropdown() {
+      if (!dropdown) return;
+      var rect = input.getBoundingClientRect();
+      var margin = 2;
+      var maxH = 170;
+      var spaceBelow = window.innerHeight - rect.bottom;
+      var spaceAbove = rect.top;
+      dropdown.style.left = rect.left + 'px';
+      dropdown.style.width = rect.width + 'px';
+      if (spaceBelow < maxH && spaceAbove > spaceBelow) {
+        // Not enough room below (e.g. editing a row near the bottom of the
+        // page) — open upward instead.
+        dropdown.style.top = '';
+        dropdown.style.bottom = (window.innerHeight - rect.top + margin) + 'px';
+        dropdown.style.maxHeight = Math.max(60, Math.min(maxH, spaceAbove - margin)) + 'px';
+      } else {
+        dropdown.style.bottom = '';
+        dropdown.style.top = (rect.bottom + margin) + 'px';
+        dropdown.style.maxHeight = Math.max(60, Math.min(maxH, spaceBelow - margin)) + 'px';
+      }
+    }
+
+    // Dropdown contents are rebuilt from scratch on every open/keystroke,
+    // filtered by the typed text — picking an option is the only way to add
+    // a doc, so free text that matches nothing never gets saved.
+    function renderOptions() {
+      if (!dropdown) return;
       var q = input.value.trim().toLowerCase();
       var matches = available.filter(function (row) {
         return !q || labelFor(row).toLowerCase().indexOf(q) !== -1;
@@ -1383,10 +1419,11 @@ function editableRow(r) {
           opt.className = 'docs-editor-option';
           opt.textContent = labelFor(row);
           // mousedown (not click) fires before the input's blur, so the pick
-          // registers before the dropdown gets hidden.
+          // registers before the dropdown gets closed.
           opt.addEventListener('mousedown', function (e) {
             e.preventDefault();
             currentDocs.push({ designation: row.designation, version: row.changeNumber, invId: row.id });
+            closeDropdown();
             renderDocsList();
             renderAddPicker();
           });
@@ -1395,20 +1432,27 @@ function editableRow(r) {
       }
     }
 
-    input.addEventListener('focus', function () {
-      renderDropdown();
-      dropdown.classList.add('open');
-    });
+    function openDropdown() {
+      if (!dropdown) {
+        dropdown = document.createElement('div');
+        dropdown.className = 'docs-editor-dropdown';
+        document.body.appendChild(dropdown);
+        repositionHandler = positionDropdown;
+        window.addEventListener('scroll', repositionHandler, true);
+        window.addEventListener('resize', repositionHandler);
+      }
+      renderOptions();
+      positionDropdown();
+    }
+
+    input.addEventListener('focus', openDropdown);
     input.addEventListener('input', function () {
-      renderDropdown();
-      dropdown.classList.add('open');
+      if (!dropdown) openDropdown();
+      else { renderOptions(); positionDropdown(); }
     });
-    input.addEventListener('blur', function () {
-      dropdown.classList.remove('open');
-    });
+    input.addEventListener('blur', closeDropdown);
 
     combo.appendChild(input);
-    combo.appendChild(dropdown);
     addWrap.appendChild(combo);
   }
 

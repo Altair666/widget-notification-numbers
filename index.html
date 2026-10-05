@@ -105,11 +105,12 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-table td{padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:top;text-align:center}
 .reg-table tr:last-child td{border-bottom:none}
 .reg-table tr:hover td{background:var(--surf2)}
-.reg-dn{font-family:var(--mono);font-size:11px;color:var(--acc);white-space:nowrap;vertical-align:middle!important}
-.reg-date{vertical-align:middle!important}
+.reg-dn{font-family:var(--mono);font-size:11px;color:var(--acc);white-space:nowrap}
+.reg-date{}
 .reg-docs{text-align:center!important;white-space:pre-wrap;font-family:var(--mono);font-size:11px;max-width:220px;word-break:break-word;overflow-wrap:anywhere}
 .reg-reason{text-align:left!important;white-space:pre-wrap;max-width:360px;word-break:break-word;overflow-wrap:anywhere}
-.reg-product{word-break:break-word;overflow-wrap:anywhere;vertical-align:middle!important}
+.reg-product{word-break:break-word;overflow-wrap:anywhere}
+.reg-vmid{vertical-align:middle!important}
 .reg-note-text{line-height:1.4;min-height:2.8em}
 .reg-note-text.clamped{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .reg-empty{padding:16px;text-align:center;color:var(--tx3);font-size:12px}
@@ -241,7 +242,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.3</footer>
+<footer class="ver-footer">v0.26.4</footer>
 
 <script>
 'use strict';
@@ -1169,16 +1170,16 @@ function renderRegistry() {
 
     if (!expanded) {
       var tr = document.createElement('tr');
-      tr.appendChild(buildDownloadNoticeCell(1));
-      tr.appendChild(buildNumCell(1));
+      var tdDl0 = buildDownloadNoticeCell(1); tdDl0.classList.add('reg-vmid'); tr.appendChild(tdDl0);
+      var tdNum0 = buildNumCell(1); tdNum0.classList.add('reg-vmid'); tr.appendChild(tdNum0);
 
       var tdDate = document.createElement('td');
-      tdDate.className = 'reg-date';
+      tdDate.className = 'reg-date reg-vmid';
       tdDate.textContent = formatDate(r.IssueDate);
       tr.appendChild(tdDate);
 
       var tdProduct = document.createElement('td');
-      tdProduct.className = 'reg-product';
+      tdProduct.className = 'reg-product reg-vmid';
       tdProduct.textContent = productLabelForRecord(r);
       tr.appendChild(tdProduct);
 

@@ -261,7 +261,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
         </div>
         <div class="form-group" style="align-items:flex-end">
           <label class="form-label">&nbsp;</label>
-          <button class="btn-add" id="btnToggleAllProducts" type="button" style="padding:8px 16px">Показать список</button>
+          <button class="btn-add" id="btnToggleAllProducts" type="button" style="padding:8px 16px;margin-right:7px">Показать список</button>
         </div>
       </div>
 
@@ -303,7 +303,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.28.5</footer>
+<footer class="ver-footer">v0.28.6</footer>
 
 <script>
 'use strict';
@@ -1682,18 +1682,17 @@ function checkSvg() { return '<svg width="11" height="11" viewBox="0 0 24 24" fi
 function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
 var btnToggleAllProducts = document.getElementById('btnToggleAllProducts');
-var lastRegisterBtnWidth = null;
+var registerBtnWidthLocked = false;
 function syncToggleAllProductsBtn() {
   btnToggleAllProducts.textContent = state.showProductsList ? 'Скрыть список' : 'Показать список';
-  // Match the width of an actual "Зарегистрировать" button exactly (measured,
-  // not guessed from CSS/padding) so this button never shrinks/grows between
-  // its two label states and lines up with the register buttons below it.
-  // Measured here — before productsList is rebuilt/cleared below — so the
-  // previous render's buttons (same constant "Зарегистрировать" text/width)
-  // are still in the DOM to read from.
+  // Width is measured from a real "Зарегистрировать" button and locked ONCE,
+  // the first time one exists in the DOM — never re-measured afterwards, so
+  // repeated open/close clicks can't make it drift or grow.
+  if (registerBtnWidthLocked) return;
   var ref = document.querySelector('.prod-header .btn-add');
-  if (ref) lastRegisterBtnWidth = ref.getBoundingClientRect().width;
-  if (lastRegisterBtnWidth) btnToggleAllProducts.style.width = lastRegisterBtnWidth + 'px';
+  if (!ref) return;
+  btnToggleAllProducts.style.width = ref.getBoundingClientRect().width + 'px';
+  registerBtnWidthLocked = true;
 }
 btnToggleAllProducts.addEventListener('click', function () {
   state.showProductsList = !state.showProductsList;

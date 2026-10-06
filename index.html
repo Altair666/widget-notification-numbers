@@ -311,7 +311,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.29.2</footer>
+<footer class="ver-footer">v0.29.3</footer>
 
 <script>
 'use strict';
@@ -419,6 +419,14 @@ grist.onRecords(function (records) {
   rebuildAllProductGroups();
 });
 
+// loadEmployees() only fetches a one-off snapshot of the Employees table (no
+// live subscription exists for side tables in the Grist widget API), so
+// edits made directly in the Grist table (e.g. fixing a surname) would never
+// reach this widget without periodically re-fetching.
+setInterval(function () {
+  if (state.employeesLoaded) loadEmployees();
+}, 15000);
+
 // Resolve this widget's own bound tableId once, needed to look up
 // DocumentDesignations' current column type in detectDesignationsColumnType.
 if (grist.docApi.listTables) {
@@ -509,6 +517,7 @@ function loadEmployees() {
       state.employeesById = byId;
       state.employeesLoaded = true;
       renderPresets();
+      if (state.recordsLoaded) renderRegistry();
     }).catch(function () { tryNext(i + 1); });
   }
   tryNext(0);

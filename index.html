@@ -312,7 +312,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.29.8</footer>
+<footer class="ver-footer">v0.29.9</footer>
 
 <script>
 'use strict';
@@ -455,6 +455,13 @@ function showError(err) {
 // NormControl/Approver now do, so the native Grist table shows readable names) —
 // it never sends the raw numeric rowId for such columns. The only reliable way to
 // get the real rowId back is grist.docApi.fetchTable() on the whole table.
+// ChangeDeadline isn't a Ref column so it isn't affected by that substitution,
+// but onRecords() still never delivered it (confirmed via the doc's own REST API:
+// the column exists with real Date values, yet r.ChangeDeadline is always absent
+// from the records onRecords() sends) — likely because this custom widget's bound
+// view section never had ChangeDeadline added as one of its fields. fetchTable()
+// reads the whole table regardless of view-section field configuration, so it's
+// read here too rather than chasing the view-section config.
 function refreshRoleRefsFromServer() {
   if (!state.noticeTableId || !grist.docApi.fetchTable) return;
   grist.docApi.fetchTable(state.noticeTableId).then(function (table) {
@@ -465,7 +472,8 @@ function refreshRoleRefsFromServer() {
         Developer: typeof (table.Developer && table.Developer[i]) === 'number' ? table.Developer[i] : 0,
         Checker: typeof (table.Checker && table.Checker[i]) === 'number' ? table.Checker[i] : 0,
         NormControl: typeof (table.NormControl && table.NormControl[i]) === 'number' ? table.NormControl[i] : 0,
-        Approver: typeof (table.Approver && table.Approver[i]) === 'number' ? table.Approver[i] : 0
+        Approver: typeof (table.Approver && table.Approver[i]) === 'number' ? table.Approver[i] : 0,
+        ChangeDeadline: (table.ChangeDeadline && table.ChangeDeadline[i]) || null
       };
     });
     state.roleRefsById = map;
@@ -1848,7 +1856,8 @@ function employeeAbbrev(id) {
 }
 
 function appendDeadlineLine(td, r) {
-  var txt = formatDate(r.ChangeDeadline);
+  var refs = state.roleRefsById[r.id] || {};
+  var txt = formatDate(refs.ChangeDeadline);
   if (!txt) return;
   var line = document.createElement('div');
   line.className = 'reg-date-deadline';

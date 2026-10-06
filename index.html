@@ -312,7 +312,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.29.7</footer>
+<footer class="ver-footer">v0.29.8</footer>
 
 <script>
 'use strict';
@@ -1342,7 +1342,7 @@ function renderRegistry() {
     }
 
     var docs = resolveDocsForRecord(r);
-    var collapsible = docs.length > 1;
+    var collapsible = docs.length > 2;
     var reasonText = r.ChangeReason || '';
     var reasonNeedsToggle = reasonText ? reasonText.split('\n').length > 2 : false;
     var hasToggle = collapsible || reasonNeedsToggle;

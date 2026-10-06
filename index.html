@@ -122,6 +122,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-chevron.on{transform:rotate(90deg)}
 .reg-num-toggle:hover .reg-chevron{color:var(--acc)}
 .reg-num-roles{font-family:var(--mono);font-size:10px;color:var(--tx3);margin-top:2px;white-space:nowrap}
+.reg-date-deadline{font-family:var(--mono);font-size:10px;color:var(--tx3);margin-top:2px;white-space:nowrap}
 .reg-dn-edit{white-space:normal}
 .reg-edit-roles{margin-top:5px;display:flex;flex-direction:column;gap:3px;text-align:left}
 .reg-role-row{display:flex;align-items:center;gap:4px}
@@ -311,7 +312,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.29.4</footer>
+<footer class="ver-footer">v0.29.5</footer>
 
 <script>
 'use strict';
@@ -1405,6 +1406,7 @@ function renderRegistry() {
       var tdDate = document.createElement('td');
       tdDate.className = 'reg-date';
       tdDate.textContent = formatDate(r.IssueDate);
+      appendDeadlineLine(tdDate, r);
       tr.appendChild(tdDate);
 
       var tdProduct = document.createElement('td');
@@ -1445,6 +1447,7 @@ function renderRegistry() {
 
         var tdDate = document.createElement('td');
         tdDate.className = 'reg-date'; tdDate.rowSpan = rowSpan; tdDate.textContent = formatDate(r.IssueDate);
+        appendDeadlineLine(tdDate, r);
         tr.appendChild(tdDate);
 
         var tdProduct = document.createElement('td');
@@ -1521,6 +1524,7 @@ function editableRow(r) {
 
   var tdDate = document.createElement('td');
   tdDate.textContent = formatDate(r.IssueDate);
+  appendDeadlineLine(tdDate, r);
   frag.appendChild(tdDate);
 
   var tdProduct = document.createElement('td');
@@ -1841,6 +1845,15 @@ function employeeAbbrev(id) {
   var emp = id != null ? state.employeesById[id] : null;
   if (!emp || !emp.name) return null;
   return String(emp.name).trim().slice(0, 3);
+}
+
+function appendDeadlineLine(td, r) {
+  var txt = formatDate(r.ChangeDeadline);
+  if (!txt) return;
+  var line = document.createElement('div');
+  line.className = 'reg-date-deadline';
+  line.textContent = txt;
+  td.appendChild(line);
 }
 
 function noticeRolesAbbrev(r) {

@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.30.1</footer>
+<footer class="ver-footer">v0.30.2</footer>
 
 <script>
 'use strict';
@@ -1851,6 +1851,12 @@ function drawContentTable(page, form, font, changeText, oboznText) {
   var field;
   try { field = form.getTextField('content'); } catch (e) { return; }
   var rect = field.acroField.getWidgets()[0].getRectangle();
+  // form.removeField() looks up the widget's existing /AP /N appearance stream
+  // internally (PDFForm.findWidgetAppearanceRef) and throws "Unexpected N type:
+  // undefined" if the field was never rendered — this field is freshly loaded
+  // from the template and has no value, so it has no appearance yet. Generating
+  // one first avoids the crash.
+  field.defaultUpdateAppearances(font);
   form.removeField(field);
 
   var x = rect.x, y = rect.y, w = rect.width, h = rect.height;

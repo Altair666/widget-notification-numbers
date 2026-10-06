@@ -206,7 +206,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="panel">
     <div class="ph">
       <span class="ph-title">Регистрация извещения</span>
-      <div style="display:flex;gap:4px;align-items:center;margin-right:16px">
+      <div style="display:flex;gap:4px;align-items:center;margin-right:7px">
         <button class="preset-add" id="btnSavePreset" type="button">Сохранить пресет</button>
         <button class="icon-btn form-date-btn" id="btnToggleHidden" title="Показать скрытые">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -261,7 +261,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
         </div>
         <div class="form-group" style="align-items:flex-end">
           <label class="form-label">&nbsp;</label>
-          <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:auto;padding:8px 16px;margin-right:16px">Показать список</button>
+          <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:auto;padding:8px 16px;margin-right:7px">Показать список</button>
         </div>
       </div>
 
@@ -303,7 +303,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.28.8</footer>
+<footer class="ver-footer">v0.28.9</footer>
 
 <script>
 'use strict';
@@ -1682,17 +1682,22 @@ function checkSvg() { return '<svg width="11" height="11" viewBox="0 0 24 24" fi
 function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
 var btnToggleAllProducts = document.getElementById('btnToggleAllProducts');
-var registerBtnWidthLocked = false;
+(function lockToggleBtnWidth() {
+  // Measure against an offscreen clone with the exact same markup as a real
+  // "Зарегистрировать" button (icon + text + padding), so the correct width
+  // is known and applied immediately on load — not only after the list has
+  // been opened once (there was nothing to measure from before that).
+  var probe = document.createElement('button');
+  probe.className = 'btn-add';
+  probe.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:-9999px;padding:8px 16px';
+  probe.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Зарегистрировать';
+  document.body.appendChild(probe);
+  var width = probe.getBoundingClientRect().width;
+  document.body.removeChild(probe);
+  btnToggleAllProducts.style.width = width + 'px';
+})();
 function syncToggleAllProductsBtn() {
   btnToggleAllProducts.textContent = state.showProductsList ? 'Скрыть список' : 'Показать список';
-  // Width is measured from a real "Зарегистрировать" button and locked ONCE,
-  // the first time one exists in the DOM — never re-measured afterwards, so
-  // repeated open/close clicks can't make it drift or grow.
-  if (registerBtnWidthLocked) return;
-  var ref = document.querySelector('.prod-header .btn-add');
-  if (!ref) return;
-  btnToggleAllProducts.style.width = ref.getBoundingClientRect().width + 'px';
-  registerBtnWidthLocked = true;
 }
 btnToggleAllProducts.addEventListener('click', function () {
   state.showProductsList = !state.showProductsList;

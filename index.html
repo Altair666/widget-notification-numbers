@@ -303,7 +303,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.28.4</footer>
+<footer class="ver-footer">v0.28.5</footer>
 
 <script>
 'use strict';
@@ -879,6 +879,11 @@ function renderProductsList() {
   groups.forEach(function (g) {
     el.appendChild(buildProductAccordionItem(g));
   });
+  // Re-measure now that fresh "Зарегистрировать" buttons exist in the DOM —
+  // the call above (before this function cleared/rebuilt the list) could
+  // only read stale or absent buttons, e.g. on the very first time the list
+  // is ever opened.
+  syncToggleAllProductsBtn();
 }
 
 function updateNoticeNumberPreview() {

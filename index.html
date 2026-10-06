@@ -207,13 +207,13 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
     <div class="ph">
       <span class="ph-title">Регистрация извещения</span>
       <div style="display:flex;gap:4px;align-items:center">
+        <button class="preset-add" id="btnSavePreset" type="button">Сохранить пресет</button>
         <button class="icon-btn form-date-btn" id="btnToggleHidden" title="Показать скрытые">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
         <button class="icon-btn form-date-btn" id="btnShowZero" title="Показать документы с изм. 0 (исходный выпуск)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="'IBM Plex Mono',monospace" stroke="none" fill="currentColor">0</text></svg>
         </button>
-        <button class="preset-add" id="btnSavePreset" type="button">Сохранить пресет</button>
       </div>
     </div>
     <div class="pb">
@@ -261,7 +261,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
         </div>
         <div class="form-group" style="align-items:flex-end">
           <label class="form-label">&nbsp;</label>
-          <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:auto;padding:8px 16px">Показать список</button>
+          <button class="btn-add" id="btnToggleAllProducts" type="button" style="padding:8px 16px">Показать список</button>
         </div>
       </div>
 
@@ -303,7 +303,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.28.3</footer>
+<footer class="ver-footer">v0.28.4</footer>
 
 <script>
 'use strict';
@@ -1677,8 +1677,18 @@ function checkSvg() { return '<svg width="11" height="11" viewBox="0 0 24 24" fi
 function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
 var btnToggleAllProducts = document.getElementById('btnToggleAllProducts');
+var lastRegisterBtnWidth = null;
 function syncToggleAllProductsBtn() {
   btnToggleAllProducts.textContent = state.showProductsList ? 'Скрыть список' : 'Показать список';
+  // Match the width of an actual "Зарегистрировать" button exactly (measured,
+  // not guessed from CSS/padding) so this button never shrinks/grows between
+  // its two label states and lines up with the register buttons below it.
+  // Measured here — before productsList is rebuilt/cleared below — so the
+  // previous render's buttons (same constant "Зарегистрировать" text/width)
+  // are still in the DOM to read from.
+  var ref = document.querySelector('.prod-header .btn-add');
+  if (ref) lastRegisterBtnWidth = ref.getBoundingClientRect().width;
+  if (lastRegisterBtnWidth) btnToggleAllProducts.style.width = lastRegisterBtnWidth + 'px';
 }
 btnToggleAllProducts.addEventListener('click', function () {
   state.showProductsList = !state.showProductsList;

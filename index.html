@@ -208,16 +208,14 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="panel">
     <div class="ph">
       <span class="ph-title">Регистрация извещения</span>
-      <div style="display:flex;gap:4px">
-        <button class="icon-btn form-date-btn" id="btnRefreshDocs" title="Обновить подборку из inventory_book">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        </button>
+      <div style="display:flex;gap:4px;align-items:center">
         <button class="icon-btn form-date-btn" id="btnToggleHidden" title="Показать скрытые">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
         <button class="icon-btn form-date-btn" id="btnShowZero" title="Показать документы с изм. 0 (исходный выпуск)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="'IBM Plex Mono',monospace" stroke="none" fill="currentColor">0</text></svg>
         </button>
+        <button class="preset-add" id="btnSavePreset" type="button">Сохранить пресет</button>
       </div>
     </div>
     <div class="pb">
@@ -307,7 +305,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.28.1</footer>
+<footer class="ver-footer">v0.28.2</footer>
 
 <script>
 'use strict';
@@ -1680,8 +1678,6 @@ function buildDownloadNoticeCell(rowSpan) {
 function checkSvg() { return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>'; }
 function xSvg() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
-document.getElementById('btnRefreshDocs').addEventListener('click', loadInventoryBook);
-
 var btnToggleAllProducts = document.getElementById('btnToggleAllProducts');
 function syncToggleAllProductsBtn() {
   btnToggleAllProducts.textContent = state.showProductsList ? 'Скрыть список' : 'Показать список';
@@ -1921,12 +1917,11 @@ function renderPresets() {
     chip.appendChild(rmBtn);
     presetsBar.appendChild(chip);
   });
+}
 
-  var addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'preset-add';
-  addBtn.textContent = '+ Сохранить как пресет';
-  addBtn.addEventListener('click', function () {
+var btnSavePreset = document.getElementById('btnSavePreset');
+if (btnSavePreset) {
+  btnSavePreset.addEventListener('click', function () {
     var d = state.selEmployees.developer, c = state.selEmployees.checker,
         n = state.selEmployees.normControl, a = state.selEmployees.approver;
     if (d == null && c == null && n == null && a == null) {
@@ -1941,7 +1936,6 @@ function renderPresets() {
     grist.setOption('presets', state.presets);
     renderPresets();
   });
-  presetsBar.appendChild(addBtn);
 }
 
 </script>

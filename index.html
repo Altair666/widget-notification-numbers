@@ -198,7 +198,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
         </div>
         <div class="form-group">
           <label class="form-label">Дата выпуска</label>
-          <input class="form-input mono" type="date" id="fDate" onchange="renderProductsList()">
+          <input class="form-input mono" type="date" id="fDate" onchange="onIssueDateChange()">
         </div>
         <div class="form-group" style="align-items:flex-start">
           <label class="form-label">&nbsp;</label>
@@ -209,11 +209,37 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
             <button class="icon-btn form-date-btn" id="btnToggleHidden" title="Показать скрытые">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
+            <button class="icon-btn form-date-btn" id="btnShowZero" title="Показать документы с изм. 0 (исходный выпуск)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="'IBM Plex Mono',monospace" stroke="none" fill="currentColor">0</text></svg>
+            </button>
           </div>
         </div>
         <div class="form-group" style="align-items:flex-end">
           <label class="form-label">&nbsp;</label>
           <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:155px;padding:8px 16px;margin-right:7px">Показать список</button>
+        </div>
+      </div>
+
+      <div class="form-row" style="grid-template-columns:1fr 1fr 1fr 1fr 130px;margin-top:0">
+        <div class="form-group">
+          <label class="form-label">Разработал</label>
+          <input class="form-input" type="text" id="fDeveloper">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Проверил</label>
+          <input class="form-input" type="text" id="fChecker">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Нормоконтроль</label>
+          <input class="form-input" type="text" id="fNormControl">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Утвердил</label>
+          <input class="form-input" type="text" id="fApprover">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Срок изменения</label>
+          <input class="form-input mono" type="date" id="fDeadline" oninput="state.deadlineEdited=true">
         </div>
       </div>
 
@@ -253,7 +279,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.13</footer>
+<footer class="ver-footer">v0.27.0</footer>
 
 <script>
 'use strict';
@@ -265,7 +291,8 @@ var NOTICE_TABLE_CANDIDATES = ['Notice_of_change'];
 var DEFAULT_OPTIONS = {
   componentsTableId: '',
   inventoryTableId: '',
-  hiddenDocs: {}
+  hiddenDocs: {},
+  showZeroGroups: false
 };
 
 var state = {
@@ -292,9 +319,12 @@ var state = {
   hiddenKeys: {},   // productId -> true, persisted in Grist widget options (options.hiddenDocs)
   showHidden: false, // whether hidden product groups are currently revealed in the accordion (view-only toggle)
 
+  showZeroGroups: false, // persisted in options.showZeroGroups: show the separate "исходный выпуск" (изм. 0) row per product
+  deadlineEdited: false, // true once the user has touched fDeadline directly — stops auto-recompute from fDate
+
   regYearFilter: null, // число года или null («Все») — фильтр реестра по году IssueDate, см. баблы в шапке реестра
 
-  productGroups: []      // [{productId, comp, list: [{designation, version, reason}, ...]}, ...]
+  productGroups: []      // [{productId, comp, list: [{designation, version, reason}, ...], isZero}, ...]
 };
 
 function setConn(ok, label) {
@@ -326,6 +356,8 @@ grist.onOptions(function (options) {
   optionsLoadedOnce = true;
   state.options = Object.assign({}, DEFAULT_OPTIONS, options || {});
   state.hiddenKeys = state.options.hiddenDocs || {};
+  state.showZeroGroups = !!state.options.showZeroGroups;
+  syncShowZeroBtn();
   if (first || state.options.componentsTableId !== prevComponentsId) loadComponents();
   if (first || state.options.inventoryTableId !== prevInventoryId) loadInventoryBook();
   renderProductsList();
@@ -692,27 +724,45 @@ function rebuildAllProductGroups() {
     byGroup[groupKey].items.push({ id: row.id, designation: row.designation, version: row.changeNumber, reason: row.reason || '' });
   });
 
-  var groups = Object.keys(byGroup).map(function (groupKey) {
+  // Исходный выпуск (изм. 0) не является изменением — если у изделия есть и
+  // документы изм. 0, и реально изменённые (изм. >0), это две разные по смыслу
+  // подборки для извещения, поэтому они выделяются в отдельные строки списка.
+  var groups = [];
+  Object.keys(byGroup).forEach(function (groupKey) {
     var entry = byGroup[groupKey];
     var candidates = entry.items.sort(function (a, b) {
       return String(a.designation).localeCompare(String(b.designation), undefined, { numeric: true });
     });
-    var flat = [];
-    reasonGroups(candidates).forEach(function (g) { g.items.forEach(function (i) { flat.push(i); }); });
     var comp = entry.rawProductId ? state.componentsById[entry.rawProductId] : null;
-    return {
-      productId: groupKey,
-      rawProductId: entry.rawProductId,
-      comp: comp,
-      unassignedName: comp ? null : (entry.productName || '(без изделия)'),
-      list: flat
-    };
+    var unassignedName = comp ? null : (entry.productName || '(без изделия)');
+
+    var nonZeroItems = candidates.filter(function (i) { return Number(i.version) !== 0; });
+    var zeroItems = candidates.filter(function (i) { return Number(i.version) === 0; });
+
+    function pushGroup(items, isZero) {
+      if (!items.length) return;
+      var flat = [];
+      reasonGroups(items).forEach(function (g) { g.items.forEach(function (i) { flat.push(i); }); });
+      groups.push({
+        productId: groupKey + (isZero ? ':zero' : ''),
+        rawProductId: entry.rawProductId,
+        comp: comp,
+        unassignedName: unassignedName,
+        isZero: isZero,
+        list: flat
+      });
+    }
+
+    pushGroup(nonZeroItems, false);
+    pushGroup(zeroItems, true);
   });
 
   groups.sort(function (a, b) {
     var an = a.comp ? a.comp.decimal_number : (a.unassignedName || '');
     var bn = b.comp ? b.comp.decimal_number : (b.unassignedName || '');
-    return String(an).localeCompare(String(bn), undefined, { numeric: true });
+    var byName = String(an).localeCompare(String(bn), undefined, { numeric: true });
+    if (byName !== 0) return byName;
+    return (a.isZero ? 1 : 0) - (b.isZero ? 1 : 0);
   });
 
   state.productGroups = groups;
@@ -723,13 +773,11 @@ function getVisibleProductGroups() {
   var groups = state.productGroups.filter(function (g) {
     return !isProductHidden(g.productId) || state.showHidden;
   });
-  // Исходный выпуск (изм. 0) — не изменение, незачем предлагать его к извещению.
-  groups = groups
-    .map(function (g) {
-      var list = g.list.filter(function (item) { return Number(item.version) !== 0; });
-      return list.length === g.list.length ? g : Object.assign({}, g, { list: list });
-    })
-    .filter(function (g) { return g.list.length > 0; });
+  // Строки с исходным выпуском (изм. 0) показываются только когда включена
+  // кнопка «Показать документы с изм. 0» — по умолчанию они скрыты.
+  if (!state.showZeroGroups) {
+    groups = groups.filter(function (g) { return !g.isZero; });
+  }
   return groups;
 }
 
@@ -796,7 +844,8 @@ function buildProductAccordionItem(g) {
   header.appendChild(dn);
 
   var nm = document.createElement('span');
-  nm.className = 'prod-name'; nm.textContent = g.comp ? g.comp.name : (g.unassignedName || '');
+  nm.className = 'prod-name';
+  nm.textContent = (g.comp ? g.comp.name : (g.unassignedName || '')) + (g.isZero ? ' — исходный выпуск (изм. 0)' : '');
   header.appendChild(nm);
 
   if (hidden) {
@@ -919,6 +968,19 @@ function inputValueToDate(s) {
   if (!s) return null;
   return Math.floor(new Date(s + 'T00:00:00Z').getTime() / 1000);
 }
+function addMonthsToInputValue(s, months) {
+  if (!s) return '';
+  var d = new Date(s + 'T00:00:00Z');
+  if (isNaN(d.getTime())) return '';
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+function onIssueDateChange() {
+  if (!state.deadlineEdited) {
+    document.getElementById('fDeadline').value = addMonthsToInputValue(document.getElementById('fDate').value, 1);
+  }
+  renderProductsList();
+}
 
 function dateToYear(v) {
   if (v == null || v === '') return null;
@@ -1015,6 +1077,7 @@ function computeNextNumber(prefix, year) {
 // ---------- Register ----------
 
 document.getElementById('fDate').value = dateToInputValue(Math.floor(Date.now() / 1000));
+document.getElementById('fDeadline').value = addMonthsToInputValue(document.getElementById('fDate').value, 1);
 
 function registerNotificationForProduct(g, btn) {
   if (!state.recordsLoaded) return;
@@ -1036,7 +1099,12 @@ function registerNotificationForProduct(g, btn) {
       : list.map(function (item) {
           return item.designation + (item.version != null ? '#' + item.version : '');
         }).join('\n') + '\n',
-    ChangeReason: computeChangeReasonText(list)
+    ChangeReason: computeChangeReasonText(list),
+    Developer: document.getElementById('fDeveloper').value || '',
+    Checker: document.getElementById('fChecker').value || '',
+    NormControl: document.getElementById('fNormControl').value || '',
+    Approver: document.getElementById('fApprover').value || '',
+    ChangeDeadline: inputValueToDate(document.getElementById('fDeadline').value)
   };
   btn.disabled = true;
   grist.selectedTable.create({ fields: fields }).then(function (result) {
@@ -1547,6 +1615,22 @@ btnToggleHidden.addEventListener('click', function () {
   btnToggleHidden.classList.toggle('on', state.showHidden);
   btnToggleHidden.title = state.showHidden ? 'Скрыть показ скрытых' : 'Показать скрытые';
   btnToggleHidden.innerHTML = state.showHidden ? EYE_OFF_ICON : EYE_ICON;
+  renderProductsList();
+});
+
+var ZERO_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="\'IBM Plex Mono\',monospace" stroke="none" fill="currentColor">0</text></svg>';
+var ZERO_OFF_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="\'IBM Plex Mono\',monospace" stroke="none" fill="currentColor">0</text><line x1="5" y1="19" x2="19" y2="5"/></svg>';
+
+var btnShowZero = document.getElementById('btnShowZero');
+function syncShowZeroBtn() {
+  btnShowZero.classList.toggle('on', state.showZeroGroups);
+  btnShowZero.title = state.showZeroGroups ? 'Скрыть документы с изм. 0 (исходный выпуск)' : 'Показать документы с изм. 0 (исходный выпуск)';
+  btnShowZero.innerHTML = state.showZeroGroups ? ZERO_OFF_ICON : ZERO_ICON;
+}
+btnShowZero.addEventListener('click', function () {
+  state.showZeroGroups = !state.showZeroGroups;
+  syncShowZeroBtn();
+  grist.setOption('showZeroGroups', state.showZeroGroups);
   renderProductsList();
 });
 

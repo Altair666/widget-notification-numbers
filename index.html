@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.32.0</footer>
+<footer class="ver-footer">v0.32.1</footer>
 
 <script>
 'use strict';
@@ -1835,7 +1835,7 @@ function gatherNoticeData(r) {
     contentRows: rows,
     contentReason: r.ChangeReason || '',
     date: formatDate(r.IssueDate),
-    izm: '—', // графа 17 — прочерк, как в реальном бланке (уточнение по образцу 2026-10-06)
+    izm: rows.length === 1 ? (rows[0].izm || '—') : '—', // графа 17: один компонент — его изменение, несколько — прочерк
     dev: noticeEmployeeName(refs.Developer),
     check: noticeEmployeeName(refs.Checker),
     normControl: noticeEmployeeName(refs.NormControl),

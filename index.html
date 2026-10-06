@@ -303,7 +303,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.28.9</footer>
+<footer class="ver-footer">v0.28.10</footer>
 
 <script>
 'use strict';
@@ -1689,7 +1689,11 @@ var btnToggleAllProducts = document.getElementById('btnToggleAllProducts');
   // been opened once (there was nothing to measure from before that).
   var probe = document.createElement('button');
   probe.className = 'btn-add';
-  probe.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:-9999px;padding:8px 16px';
+  // width:auto overrides the .btn-add{width:100%} rule — without it, an
+  // absolutely positioned element with no containing block resolves 100%
+  // against the viewport, not its content (this is what blew the button
+  // up to full row width in v0.28.9).
+  probe.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:-9999px;width:auto;padding:8px 16px;white-space:nowrap';
   probe.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Зарегистрировать';
   document.body.appendChild(probe);
   var width = probe.getBoundingClientRect().width;

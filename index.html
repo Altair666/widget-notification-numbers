@@ -256,7 +256,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.11</footer>
+<footer class="ver-footer">v0.26.12</footer>
 
 <script>
 'use strict';
@@ -879,7 +879,7 @@ function buildGenTable(g) {
         tr.appendChild(tdDn);
 
         var tdVer = document.createElement('td');
-        tdVer.textContent = (row.version != null ? row.version : '');
+        tdVer.textContent = (row.version ? row.version : '');
         tr.appendChild(tdVer);
 
         if (idx === i) {
@@ -1252,7 +1252,7 @@ function renderRegistry() {
       }
 
       var tdDn = document.createElement('td');
-      tdDn.className = 'reg-docs'; tdDn.textContent = doc.designation + (doc.version != null ? ' изм.' + doc.version : '');
+      tdDn.className = 'reg-docs'; tdDn.textContent = doc.designation + (doc.version ? ' изм.' + doc.version : '');
       tr.appendChild(tdDn);
 
       if (idx === 0) {
@@ -1337,7 +1337,7 @@ function editableRow(r) {
       row.className = 'docs-editor-row';
       var label = document.createElement('span');
       label.className = 'docs-editor-label';
-      label.textContent = doc.designation + (doc.version != null ? ' изм.' + doc.version : '');
+      label.textContent = doc.designation + (doc.version ? ' изм.' + doc.version : '');
       row.appendChild(label);
       var rmBtn = document.createElement('button');
       rmBtn.type = 'button'; rmBtn.className = 'docs-editor-remove'; rmBtn.textContent = '×'; rmBtn.title = 'Удалить';
@@ -1361,7 +1361,7 @@ function editableRow(r) {
       return String(a.designation).localeCompare(String(b.designation), undefined, { numeric: true });
     });
 
-    function labelFor(row) { return row.designation + ' изм.' + row.changeNumber; }
+    function labelFor(row) { return row.designation + (row.changeNumber ? ' изм.' + row.changeNumber : ''); }
 
     var combo = document.createElement('div');
     combo.className = 'docs-editor-combo';

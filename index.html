@@ -121,6 +121,14 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-chevron{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;color:var(--tx3);transition:transform .15s;flex-shrink:0}
 .reg-chevron.on{transform:rotate(90deg)}
 .reg-num-toggle:hover .reg-chevron{color:var(--acc)}
+.reg-num-roles{font-family:var(--mono);font-size:10px;color:var(--tx3);margin-top:2px;white-space:nowrap}
+.reg-dn-edit{white-space:normal}
+.reg-edit-roles{margin-top:5px;display:flex;flex-direction:column;gap:3px;text-align:left}
+.reg-role-row{display:flex;align-items:center;gap:4px}
+.reg-role-label{font-family:var(--mono);font-size:10px;color:var(--tx3);width:24px;flex-shrink:0;text-align:right}
+.reg-role-combo{flex:1;min-width:0}
+.reg-role-combo .emp-input{height:26px;font-size:11px;padding:0 22px 0 6px;width:100%;box-sizing:border-box}
+.reg-role-combo .emp-arrow{width:18px;height:18px}
 .reg-doc-count{white-space:nowrap;vertical-align:middle!important}
 .clickable{cursor:pointer}
 .clickable:hover{color:var(--acc)}
@@ -303,7 +311,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.28.10</footer>
+<footer class="ver-footer">v0.29.0</footer>
 
 <script>
 'use strict';
@@ -1339,6 +1347,13 @@ function renderRegistry() {
         toggle.classList.add('no-toggle');
       }
       tdNum.appendChild(toggle);
+      var rolesAbbrev = noticeRolesAbbrev(r);
+      if (rolesAbbrev) {
+        var rolesLine = document.createElement('div');
+        rolesLine.className = 'reg-num-roles';
+        rolesLine.textContent = rolesAbbrev;
+        tdNum.appendChild(rolesLine);
+      }
       return tdNum;
     }
 
@@ -1429,7 +1444,38 @@ function editableRow(r) {
   frag.appendChild(tdDl);
 
   var tdNum = document.createElement('td');
-  tdNum.className = 'reg-dn'; tdNum.textContent = r.Number || '';
+  tdNum.className = 'reg-dn reg-dn-edit';
+  var numLine = document.createElement('div');
+  numLine.className = 'reg-num-text';
+  numLine.textContent = r.Number || '';
+  tdNum.appendChild(numLine);
+
+  var roleSel = {
+    developer: r.Developer || null,
+    checker: r.Checker || null,
+    normControl: r.NormControl || null,
+    approver: r.Approver || null
+  };
+  var rolesWrap = document.createElement('div');
+  rolesWrap.className = 'reg-edit-roles';
+  [
+    { key: 'developer', cap: 'canDevelop', label: 'разр' },
+    { key: 'checker', cap: 'canCheck', label: 'пров' },
+    { key: 'normControl', cap: 'canNormControl', label: 'нкон' },
+    { key: 'approver', cap: 'canApprove', label: 'утв' }
+  ].forEach(function (cfg) {
+    var row = document.createElement('div');
+    row.className = 'reg-role-row';
+    var lbl = document.createElement('span');
+    lbl.className = 'reg-role-label';
+    lbl.textContent = cfg.label;
+    row.appendChild(lbl);
+    var combo = buildEmployeeCombo(cfg.cap, roleSel[cfg.key], function (id) { roleSel[cfg.key] = id; });
+    combo.classList.add('reg-role-combo');
+    row.appendChild(combo);
+    rolesWrap.appendChild(row);
+  });
+  tdNum.appendChild(rolesWrap);
   frag.appendChild(tdNum);
 
   var tdDate = document.createElement('td');
@@ -1637,6 +1683,10 @@ function editableRow(r) {
   saveBtn.addEventListener('click', function () {
     var fields = {
       ChangeReason: taReason.value.trim(),
+      Developer: roleSel.developer || 0,
+      Checker: roleSel.checker || 0,
+      NormControl: roleSel.normControl || 0,
+      Approver: roleSel.approver || 0,
       DocumentDesignations: state.designationsColumnIsRef
         ? toRefListValue(currentDocs.map(function (d) { return d.invId; }).filter(function (id) { return id != null; }))
         : (currentDocs.length
@@ -1745,6 +1795,153 @@ var EMPLOYEE_ROLE_FIELDS = [
   { input: 'fApprover', role: 'approver', cap: 'canApprove' }
 ];
 var EMPLOYEE_PICKERS = {};
+
+function employeeAbbrev(id) {
+  var emp = id != null ? state.employeesById[id] : null;
+  if (!emp || !emp.name) return null;
+  return String(emp.name).trim().slice(0, 3);
+}
+
+function noticeRolesAbbrev(r) {
+  var parts = [r.Developer, r.Checker, r.NormControl, r.Approver].map(employeeAbbrev);
+  if (!parts.some(function (p) { return p; })) return '';
+  return parts.map(function (p) { return p || '—'; }).join('/');
+}
+
+// Standalone employee combobox used by the registry's edit-mode role rows —
+// same dropdown/search behavior as setupEmployeePicker below, but built on
+// detached elements (no getElementById) with its own id/onChange, since each
+// editable registry row needs its own 4 independent instances rather than
+// the single global one per role that the registration form uses.
+function buildEmployeeCombo(cap, initialId, onChange) {
+  var wrap = document.createElement('div');
+  wrap.className = 'emp-combo';
+
+  var input = document.createElement('input');
+  input.type = 'text'; input.className = 'form-input emp-input'; input.autocomplete = 'off'; input.placeholder = 'Фамилия…';
+
+  var arrow = document.createElement('button');
+  arrow.type = 'button'; arrow.className = 'emp-arrow'; arrow.tabIndex = -1; arrow.title = 'Выбрать из списка';
+  arrow.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>';
+
+  var selectedId = initialId != null ? initialId : null;
+  var initialEmp = selectedId != null ? state.employeesById[selectedId] : null;
+  input.value = initialEmp ? initialEmp.name : '';
+
+  var dropdown = null;
+  var repositionHandler = null;
+  var suppressFilter = false;
+
+  function availableEmployees() {
+    return state.employees.filter(function (e) { return e[cap]; });
+  }
+
+  function closeDropdown() {
+    if (dropdown && dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
+    dropdown = null;
+    if (repositionHandler) {
+      window.removeEventListener('scroll', repositionHandler, true);
+      window.removeEventListener('resize', repositionHandler);
+      repositionHandler = null;
+    }
+  }
+
+  function positionDropdown() {
+    if (!dropdown) return;
+    var rect = input.getBoundingClientRect();
+    var margin = 2;
+    var maxH = 170;
+    var spaceBelow = window.innerHeight - rect.bottom;
+    var spaceAbove = rect.top;
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.width = Math.max(rect.width, 150) + 'px';
+    if (spaceBelow < maxH && spaceAbove > spaceBelow) {
+      dropdown.style.top = '';
+      dropdown.style.bottom = (window.innerHeight - rect.top + margin) + 'px';
+      dropdown.style.maxHeight = Math.max(60, Math.min(maxH, spaceAbove - margin)) + 'px';
+    } else {
+      dropdown.style.bottom = '';
+      dropdown.style.top = (rect.bottom + margin) + 'px';
+      dropdown.style.maxHeight = Math.max(60, Math.min(maxH, spaceBelow - margin)) + 'px';
+    }
+  }
+
+  function selectEmployee(emp) {
+    selectedId = emp ? emp.id : null;
+    input.value = emp ? emp.name : '';
+    onChange(selectedId);
+  }
+
+  function renderOptions() {
+    if (!dropdown) return;
+    var q = suppressFilter ? '' : input.value.trim().toLowerCase();
+    var matches = availableEmployees().filter(function (e) {
+      return !q || String(e.name).toLowerCase().indexOf(q) !== -1;
+    });
+    dropdown.innerHTML = '';
+    if (!matches.length) {
+      var empty = document.createElement('div');
+      empty.className = 'emp-option-empty';
+      empty.textContent = state.employeesLoaded ? 'Ничего не найдено' : 'Загрузка…';
+      dropdown.appendChild(empty);
+    } else {
+      matches.forEach(function (emp) {
+        var opt = document.createElement('div');
+        opt.className = 'emp-option';
+        opt.textContent = emp.name;
+        opt.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          selectEmployee(emp);
+          closeDropdown();
+        });
+        dropdown.appendChild(opt);
+      });
+    }
+  }
+
+  function openDropdown() {
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.className = 'emp-dropdown';
+      document.body.appendChild(dropdown);
+      repositionHandler = positionDropdown;
+      window.addEventListener('scroll', repositionHandler, true);
+      window.addEventListener('resize', repositionHandler);
+    }
+    renderOptions();
+    positionDropdown();
+  }
+
+  input.addEventListener('focus', function () {
+    input.select();
+    suppressFilter = true;
+    openDropdown();
+  });
+  input.addEventListener('input', function () {
+    suppressFilter = false;
+    selectedId = null;
+    onChange(null);
+    if (!dropdown) openDropdown();
+    else { renderOptions(); positionDropdown(); }
+  });
+  input.addEventListener('blur', function () {
+    closeDropdown();
+    var emp = selectedId != null ? state.employeesById[selectedId] : null;
+    input.value = emp ? emp.name : '';
+  });
+
+  arrow.addEventListener('mousedown', function (e) {
+    e.preventDefault();
+    if (dropdown) { closeDropdown(); return; }
+    input.focus();
+    suppressFilter = true;
+    openDropdown();
+  });
+
+  wrap.appendChild(input);
+  wrap.appendChild(arrow);
+  return wrap;
+}
 
 function setupEmployeePicker(cfg) {
   var input = document.getElementById(cfg.input);

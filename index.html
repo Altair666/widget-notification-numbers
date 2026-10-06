@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.31.0</footer>
+<footer class="ver-footer">v0.32.0</footer>
 
 <script>
 'use strict';
@@ -1794,19 +1794,22 @@ function loadNoticePdfAssets() {
   return noticePdfAssetsPromise;
 }
 
-// Графа 18 "Содержание изменения" — таблица с одной строкой НА КАЖДЫЙ
-// привязанный к извещению документ (не единственная сводная строка):
-// "Изменение" — его собственное изменение (inventory_book.Note), "Обозначение
-// вход. документов" — его обозначение. Если документов вообще нет — одна
-// строка-заглушка с прочерком в "Изменение" (правка пользователя 2026-10-06).
-// Графа 3 "Обозначение" на листе 1 (отдельное поле шапки, НЕ часть таблицы) —
-// если документ один, его обозначение; если их больше одного — "см. ниже".
+// Графа 18 "Содержание изменения" — по образцу реального бланка "Извещение
+// ЛМАП.21-2019.pdf": таблица "Изм." | "Обозначение" | "Примечание" с одной
+// строкой НА КАЖДЫЙ привязанный к извещению документ. "Изм." — номер
+// изменения конкретно этого документа (inventory_book.ChangeNumber, то же
+// значение что и doc.version в resolveDocsForRecord), не текст — это
+// уточнение правки пользователя 2026-10-06 (раньше сюда по ошибке шёл текст
+// причины из inventory_book.Note). Если у документа номера изменения нет —
+// прочерк; если документов вообще нет — одна строка-заглушка с прочерком.
+// Графа 3 "Обозначение" на листе 1 (отдельное поле шапки, НЕ часть этой
+// таблицы) — если документ один, его обозначение; если их больше одного —
+// "см. ниже".
 function noticeContentRows(r) {
   var docs = resolveDocsForRecord(r).filter(function (d) { return d.designation; });
-  if (!docs.length) return [{ obozn: '', change: '—' }];
+  if (!docs.length) return [{ izm: '—', obozn: '' }];
   return docs.map(function (d) {
-    var inv = d.id != null ? state.inventoryById[d.id] : null;
-    return { obozn: d.designation || '', change: inv ? (inv.reason || '') : '' };
+    return { izm: (d.version != null ? String(d.version) : '—'), obozn: d.designation || '' };
   });
 }
 
@@ -1832,7 +1835,7 @@ function gatherNoticeData(r) {
     contentRows: rows,
     contentReason: r.ChangeReason || '',
     date: formatDate(r.IssueDate),
-    izm: '', // графа 17 — номер изменения по счёту, пока не решено (см. чат от 2026-10-06), оставляем пустым
+    izm: '—', // графа 17 — прочерк, как в реальном бланке (уточнение по образцу 2026-10-06)
     dev: noticeEmployeeName(refs.Developer),
     check: noticeEmployeeName(refs.Checker),
     normControl: noticeEmployeeName(refs.NormControl),
@@ -1841,14 +1844,12 @@ function gatherNoticeData(r) {
   };
 }
 
-// Рисует таблицу графы 18 "Содержание изменения" — "Изменение" | "Обозначение
-// вход. документов" | "Причина" — внутри прямоугольника существующего поля
-// "content" из шаблона, затем убирает само текстовое поле (оно остаётся
-// пустым прямоугольником поверх нарисованной таблицы, если его не убрать).
-// rows — одна запись на каждый привязанный документ (см. noticeContentRows);
-// reasonText — ChangeReason извещения, пишется один раз в "Причину" (общая
-// причина для всего извещения, а не по-документная) — правка пользователя
-// 2026-10-06. Черновая раскладка: доработаем после того, как увидим вживую.
+// Рисует таблицу графы 18 "Содержание изменения" — "Изм." | "Обозначение" |
+// "Примечание" — внутри прямоугольника существующего поля "content" из шаблона,
+// затем убирает само текстовое поле. rows — одна запись на каждый документ
+// (см. noticeContentRows); reasonText — ChangeReason извещения, пишется один
+// раз в "Примечание" (общее для всего извещения). Колонка "Изм." — 13 мм,
+// как официальная ячейка "Изм." в шапке графы 18 (make_forms_r50mod2.py:header_xth).
 function drawContentTable(page, form, font, rows, reasonText) {
   var field;
   try { field = form.getTextField('content'); } catch (e) { return; }
@@ -1863,7 +1864,7 @@ function drawContentTable(page, form, font, rows, reasonText) {
 
   var x = rect.x, y = rect.y, w = rect.width, h = rect.height;
   var headerH = Math.min(14, h / 4);
-  var col1 = w * 0.34, col2 = w * 0.33, col3 = w - col1 - col2;
+  var col1 = Math.min(36.85, w * 0.2), col2 = w * 0.5, col3 = w - col1 - col2;
   var black = PDFLib.rgb(0, 0, 0);
 
   page.drawLine({ start: { x: x, y: y + h - headerH }, end: { x: x + w, y: y + h - headerH }, thickness: 0.75, color: black });
@@ -1876,18 +1877,19 @@ function drawContentTable(page, form, font, rows, reasonText) {
     var tw = font.widthOfTextAtSize(text, size);
     page.drawText(text, { x: cx - tw / 2, y: topY - size, size: size, font: font });
   }
-  center('Изменение', x + col1 / 2, y + h - 2, hs);
-  center('Обозначение вход. документов', x + col1 + col2 / 2, y + h - 2, hs);
-  center('Причина', x + col1 + col2 + col3 / 2, y + h - 2, hs);
+  center('Изм.', x + col1 / 2, y + h - 2, hs);
+  center('Обозначение', x + col1 + col2 / 2, y + h - 2, hs);
+  center('Примечание', x + col1 + col2 + col3 / 2, y + h - 2, hs);
 
   var bodyTop = y + h - headerH;
   var rowH = bs + 5;
-  var list = (rows && rows.length) ? rows : [{ obozn: '', change: '' }];
+  var list = (rows && rows.length) ? rows : [{ izm: '—', obozn: '' }];
   list.forEach(function (row, i) {
     var rowTop = bodyTop - i * rowH;
     if (i > 0) page.drawLine({ start: { x: x, y: rowTop }, end: { x: x + w, y: rowTop }, thickness: 0.4, color: black });
     var textY = rowTop - bs - 2;
-    page.drawText(String(row.change || ''), { x: x + 3, y: textY, size: bs, font: font });
+    var izmW = font.widthOfTextAtSize(String(row.izm || ''), bs);
+    page.drawText(String(row.izm || ''), { x: x + col1 / 2 - izmW / 2, y: textY, size: bs, font: font });
     page.drawText(String(row.obozn || ''), { x: x + col1 + 3, y: textY, size: bs, font: font });
   });
   page.drawText(String(reasonText || ''), { x: x + col1 + col2 + 3, y: bodyTop - bs - 2, size: bs, font: font });
@@ -1928,14 +1930,24 @@ async function buildNoticePdfBytes(data, assets) {
     });
   }
 
-  function set(name, value) {
+  // В шаблоне DA-размеры шапки разнобойные (часть полей "0 Tf" = автоподгонка,
+  // часть фиксированные 9/10 pt) — из-за этого "ЛМП" и дата выглядят разного
+  // размера. Принудительно задаём один размер всем полям шапки.
+  var HEADER_SIZE = 9;
+  function set(name, value, fontSize) {
     if (value == null || value === '') return;
-    try { form.getTextField(name).setText(String(value)); } catch (e) { /* поле отсутствует в этом бланке — пропускаем */ }
+    try {
+      var f = form.getTextField(name);
+      f.setText(String(value));
+      if (fontSize) f.setFontSize(fontSize);
+    } catch (e) { /* поле отсутствует в этом бланке — пропускаем */ }
   }
 
-  set('org', data.org); set('notice', data.number); set('designation', data.designation); set('product', data.product);
-  set('issueDate', data.date); set('changeDeadline', data.changeDeadline); set('applicability', data.applicability);
-  set('sheet', 1); set('sheets', total); set('changeNo', data.izm);
+  set('org', data.org, HEADER_SIZE); set('notice', data.number, HEADER_SIZE);
+  set('designation', data.designation, HEADER_SIZE); set('product', data.product, HEADER_SIZE);
+  set('issueDate', data.date, HEADER_SIZE); set('changeDeadline', data.changeDeadline, HEADER_SIZE);
+  set('applicability', data.applicability);
+  set('sheet', 1, HEADER_SIZE); set('sheets', total, HEADER_SIZE); set('changeNo', data.izm);
   set('dev_name', data.dev); set('dev_date', data.dev ? data.date : '');
   set('check_name', data.check); set('check_date', data.check ? data.date : '');
   set('normControl_name', data.normControl); set('normControl_date', data.normControl ? data.date : '');

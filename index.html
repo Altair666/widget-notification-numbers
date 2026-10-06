@@ -164,7 +164,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .cell-edit-btn.save:hover{background:var(--grn-bg);color:var(--grn);border-color:var(--grn-brd)}
 .cell-edit-btn.cancel{color:var(--red)}
 .cell-edit-btn.cancel:hover{background:var(--red-bg);color:var(--red);border-color:var(--red-brd)}
-.reg-table textarea.form-textarea{min-height:50px;text-align:left;font-size:11px}
+.reg-table textarea.form-textarea{min-height:50px;text-align:left;font-size:11px;padding-bottom:16px}
 .reg-table input.form-input{height:26px;font-size:11px}
 .tag{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:4pt}
 .tag-blue{background:var(--acc-bg);color:var(--acc)}
@@ -311,7 +311,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.29.0</footer>
+<footer class="ver-footer">v0.29.1</footer>
 
 <script>
 'use strict';
@@ -1459,10 +1459,10 @@ function editableRow(r) {
   var rolesWrap = document.createElement('div');
   rolesWrap.className = 'reg-edit-roles';
   [
-    { key: 'developer', cap: 'canDevelop', label: 'разр' },
-    { key: 'checker', cap: 'canCheck', label: 'пров' },
-    { key: 'normControl', cap: 'canNormControl', label: 'нкон' },
-    { key: 'approver', cap: 'canApprove', label: 'утв' }
+    { key: 'developer', cap: 'canDevelop', label: 'Разр' },
+    { key: 'checker', cap: 'canCheck', label: 'Пров' },
+    { key: 'normControl', cap: 'canNormControl', label: 'НКон' },
+    { key: 'approver', cap: 'canApprove', label: 'Утв' }
   ].forEach(function (cfg) {
     var row = document.createElement('div');
     row.className = 'reg-role-row';

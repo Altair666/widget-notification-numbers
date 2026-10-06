@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.33.1</footer>
+<footer class="ver-footer">v0.33.2</footer>
 
 <script>
 'use strict';
@@ -1849,10 +1849,11 @@ function gatherNoticeData(r) {
 // (см. noticeContentRows); reasonText — ChangeReason извещения, пишется один
 // раз в "Примечание" (общее для всего извещения). Колонка "Изм." — 13 мм,
 // как официальная ячейка "Изм." в шапке графы 18 (make_forms_r50mod2.py:header_xth).
-// Геометрия таблицы графы 18 по правилам бланка: отступ 10 мм от рамки слева,
-// справа и снизу; строки 7 мм; колонка "Изм." 10 мм; "Обозначение" по ширине
-// самой длинной записи; остаток — "Примечание" (переносится по словам).
-// Вверху две полоски по 7 мм: заголовок "Содержание изменения" и подписи колонок.
+// Таблица графы 18: строки = документы (компоненты) извещения, строка 7 мм;
+// при одном компоненте колонки "Изм." нет; "Обозначение" по ширине самой
+// длинной записи; "Примечание" переносится по словам и растягивает последнюю
+// строку (текст не разрывается и на лист 1а не выносится). Отступ 10 мм от
+// рамки слева и справа; строки на следующий лист (1а) уходят только по числу строк.
 var NOTICE_MM = 72 / 25.4;
 
 function noticeWrapLines(text, font, size, maxW) {
@@ -1872,56 +1873,60 @@ function noticeWrapLines(text, font, size, maxW) {
 function noticeTableGeometry(rect, font, rows) {
   var mm = NOTICE_MM, bs = 9, rowH = 7 * mm, inset = 10 * mm;
   var w = rect.width - 2 * inset;
-  var col1 = 10 * mm;
+  var hasIzm = rows.length > 1;
+  var col1 = hasIzm ? 10 * mm : 0;
   var longest = 0;
   rows.forEach(function (r) { longest = Math.max(longest, font.widthOfTextAtSize(String(r.obozn || ''), bs)); });
   var col2 = Math.min(w - col1 - 40, longest + 8);
-  var capacity = Math.max(1, Math.floor((rect.height - inset) / rowH) - 2);
+  var capacity = Math.max(1, Math.floor((rect.height - inset) / rowH) - 1);
   return {
-    x: rect.x + inset, w: w, col1: col1, col2: col2, col3: w - col1 - col2,
-    rowH: rowH, bs: bs, capacity: capacity,
-    bottom: rect.y + inset, top: rect.y + inset + (capacity + 2) * rowH
+    x: rect.x + inset, top: rect.y + rect.height, w: w, hasIzm: hasIzm,
+    col1: col1, col2: col2, col3: w - col1 - col2,
+    rowH: rowH, bs: bs, capacity: capacity
   };
 }
 
 function drawNoticeTable(page, font, geo, chunk, reasonText) {
   var black = PDFLib.rgb(0, 0, 0);
   var x = geo.x, w = geo.w, rowH = geo.rowH, bs = geo.bs, hs = 8;
-  var top = geo.top, bottom = geo.bottom;
-  var bodyTop = top - 2 * rowH;
-  var bodyRows = geo.capacity;
+  var top = geo.top, bodyTop = top - rowH;
+  var n = chunk.length;
+  var leading = bs + 2;
+  var lines = noticeWrapLines(reasonText, font, bs, geo.col3 - 8);
+  var textH = 3 + bs + (lines.length - 1) * leading + 4;
+  var bodyH = Math.max(n * rowH, textH);
+  var bottom = bodyTop - bodyH;
+  var vx1 = x + (geo.hasIzm ? geo.col1 : 0), vx2 = vx1 + geo.col2;
 
   page.drawRectangle({ x: x, y: bottom, width: w, height: top - bottom, borderColor: black, borderWidth: 0.75 });
-  page.drawLine({ start: { x: x, y: top - rowH }, end: { x: x + w, y: top - rowH }, thickness: 0.75, color: black });
   page.drawLine({ start: { x: x, y: bodyTop }, end: { x: x + w, y: bodyTop }, thickness: 0.75, color: black });
-  for (var i = 1; i < bodyRows; i++) {
+  if (geo.hasIzm) page.drawLine({ start: { x: vx1, y: top }, end: { x: vx1, y: bottom }, thickness: 0.75, color: black });
+  page.drawLine({ start: { x: vx2, y: top }, end: { x: vx2, y: bottom }, thickness: 0.75, color: black });
+  for (var i = 1; i < n; i++) {
     var ly = bodyTop - i * rowH;
-    page.drawLine({ start: { x: x, y: ly }, end: { x: x + geo.col1 + geo.col2, y: ly }, thickness: 0.4, color: black });
+    page.drawLine({ start: { x: x, y: ly }, end: { x: vx2, y: ly }, thickness: 0.4, color: black });
   }
-  var vx1 = x + geo.col1, vx2 = x + geo.col1 + geo.col2;
-  page.drawLine({ start: { x: vx1, y: top - rowH }, end: { x: vx1, y: bottom }, thickness: 0.75, color: black });
-  page.drawLine({ start: { x: vx2, y: top - rowH }, end: { x: vx2, y: bottom }, thickness: 0.75, color: black });
 
   function center(text, cx, rowTop, size) {
     text = String(text || '');
     var tw = font.widthOfTextAtSize(text, size);
     page.drawText(text, { x: cx - tw / 2, y: rowTop - rowH / 2 - size * 0.35, size: size, font: font });
   }
-  center('Содержание изменения', x + w / 2, top, hs);
-  center('Изм.', x + geo.col1 / 2, top - rowH, hs);
-  center('Обозначение', x + geo.col1 + geo.col2 / 2, top - rowH, hs);
-  center('Примечание', x + geo.col1 + geo.col2 + geo.col3 / 2, top - rowH, hs);
+  if (geo.hasIzm) center('Изм.', x + geo.col1 / 2, top, hs);
+  center('Обозначение', vx1 + geo.col2 / 2, top, hs);
+  center('Примечание', vx2 + geo.col3 / 2, top, hs);
 
-  (chunk || []).forEach(function (row, i) {
+  chunk.forEach(function (row, i) {
     var rowTop = bodyTop - i * rowH;
     var baseline = rowTop - rowH / 2 - bs * 0.35;
-    var izm = String(row.izm || '—');
-    page.drawText(izm, { x: x + geo.col1 / 2 - font.widthOfTextAtSize(izm, bs) / 2, y: baseline, size: bs, font: font });
+    if (geo.hasIzm) {
+      var izm = String(row.izm || '—');
+      page.drawText(izm, { x: x + geo.col1 / 2 - font.widthOfTextAtSize(izm, bs) / 2, y: baseline, size: bs, font: font });
+    }
     page.drawText(String(row.obozn || ''), { x: vx1 + 4, y: baseline, size: bs, font: font });
   });
 
-  var leading = bs + 2;
-  noticeWrapLines(reasonText, font, bs, geo.col3 - 8).forEach(function (line, i) {
+  lines.forEach(function (line, i) {
     page.drawText(line, { x: vx2 + 4, y: bodyTop - 3 - bs - i * leading, size: bs, font: font });
   });
 }

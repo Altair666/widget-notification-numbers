@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.33.4</footer>
+<footer class="ver-footer">v0.33.5</footer>
 
 <script>
 'use strict';
@@ -2009,6 +2009,7 @@ async function buildNoticePdfBytes(data, assets) {
   set('approve_name', data.approve); set('approve_date', data.approve ? data.date : '');
   for (var s2 = 2; s2 <= total; s2++) {
     set('L' + s2 + '_notice', data.number); set('L' + s2 + '_sheet', s2); set('L' + s2 + '_product', data.product);
+    set('L' + s2 + '_changeNo', data.izm);
   }
 
   // form.removeField() ищет /AP /N у виджета (PDFForm.findWidgetAppearanceRef) и

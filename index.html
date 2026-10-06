@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.30.0</footer>
+<footer class="ver-footer">v0.30.1</footer>
 
 <script>
 'use strict';
@@ -1794,15 +1794,21 @@ function loadNoticePdfAssets() {
   return noticePdfAssetsPromise;
 }
 
-// Графа 18 "Содержание изменения" и графа "Обозначение" на листе 1: если к
-// извещению привязан ровно 1 документ — пишем его обозначение и текст причины
-// изменения (ChangeReason) этого извещения; если больше 1 — "см. ниже" /
-// "—" (построчной расшифровки по каждому документу в Grist пока нет, это
-// зафиксированное пользователем 2026-10-06 ограничение текущей версии).
+// Графа 18 "Содержание изменения" (таблица "Изменение" | "Обозначение вход.
+// документов" | "Причина") и графа 3 "Обозначение" на листе 1: если к
+// извещению привязан ровно 1 документ — "Изменение" берётся с самого
+// компонента/документа (inventory_book.Note, НЕ ChangeReason извещения —
+// это другая причина, см. правку пользователя 2026-10-06), "Обозначение" —
+// его обозначение; если больше 1 — "—" / "см. ниже" (построчной
+// расшифровки по каждому документу в Grist пока нет — ограничение текущей
+// версии). Колонка "Причина" в таблице графы 18 всегда остаётся пустой.
 function noticeContentFields(r) {
   var docs = resolveDocsForRecord(r);
-  if (docs.length === 1) return { obozn: docs[0].designation || '', content: r.ChangeReason || '' };
-  return { obozn: 'см. ниже', content: '—' };
+  if (docs.length === 1) {
+    var inv = docs[0].id != null ? state.inventoryById[docs[0].id] : null;
+    return { obozn: docs[0].designation || '', change: inv ? (inv.reason || '') : '' };
+  }
+  return { obozn: 'см. ниже', change: '—' };
 }
 
 function noticeEmployeeName(id) {
@@ -1823,8 +1829,9 @@ function gatherNoticeData(r) {
     designation: content.obozn,
     product: productLabelForRecord(r),
     applicability: comp ? (comp.decimal_number || '') : '',
-    reason: r.ChangeReason || '',
-    content: content.content,
+    changeDeadline: formatDate(refs.ChangeDeadline),
+    content: content.change,
+    contentDesignation: content.obozn,
     date: formatDate(r.IssueDate),
     izm: '', // графа 17 — номер изменения по счёту, пока не решено (см. чат от 2026-10-06), оставляем пустым
     dev: noticeEmployeeName(refs.Developer),
@@ -1833,6 +1840,41 @@ function gatherNoticeData(r) {
     approve: noticeEmployeeName(refs.Approver),
     extraSheets: 0
   };
+}
+
+// Рисует таблицу графы 18 "Содержание изменения" — "Изменение" | "Обозначение
+// вход. документов" | "Причина" — внутри прямоугольника существующего поля
+// "content" из шаблона, затем убирает само текстовое поле (оно остаётся
+// пустым прямоугольником поверх нарисованной таблицы, если его не убрать).
+// Колонка "Причина" всегда пустая (решение пользователя 2026-10-06).
+function drawContentTable(page, form, font, changeText, oboznText) {
+  var field;
+  try { field = form.getTextField('content'); } catch (e) { return; }
+  var rect = field.acroField.getWidgets()[0].getRectangle();
+  form.removeField(field);
+
+  var x = rect.x, y = rect.y, w = rect.width, h = rect.height;
+  var headerH = Math.min(14, h / 4);
+  var col1 = w * 0.34, col2 = w * 0.33, col3 = w - col1 - col2;
+  var black = PDFLib.rgb(0, 0, 0);
+
+  page.drawLine({ start: { x: x, y: y + h - headerH }, end: { x: x + w, y: y + h - headerH }, thickness: 0.75, color: black });
+  page.drawLine({ start: { x: x + col1, y: y }, end: { x: x + col1, y: y + h }, thickness: 0.75, color: black });
+  page.drawLine({ start: { x: x + col1 + col2, y: y }, end: { x: x + col1 + col2, y: y + h }, thickness: 0.75, color: black });
+
+  var hs = 8, bs = 9;
+  function center(text, cx, topY, size) {
+    text = String(text || '');
+    var tw = font.widthOfTextAtSize(text, size);
+    page.drawText(text, { x: cx - tw / 2, y: topY - size, size: size, font: font });
+  }
+  center('Изменение', x + col1 / 2, y + h - 2, hs);
+  center('Обозначение вход. документов', x + col1 + col2 / 2, y + h - 2, hs);
+  center('Причина', x + col1 + col2 + col3 / 2, y + h - 2, hs);
+
+  var bodyTop = y + h - headerH - 3;
+  page.drawText(String(changeText || ''), { x: x + 3, y: bodyTop - bs, size: bs, font: font });
+  page.drawText(String(oboznText || ''), { x: x + col1 + 3, y: bodyTop - bs, size: bs, font: font });
 }
 
 async function buildNoticePdfBytes(data, assets) {
@@ -1876,8 +1918,8 @@ async function buildNoticePdfBytes(data, assets) {
   }
 
   set('org', data.org); set('notice', data.number); set('designation', data.designation); set('product', data.product);
-  set('reason', data.reason); set('issueDate', data.date); set('applicability', data.applicability);
-  set('sheet', 1); set('sheets', total); set('changeNo', data.izm); set('content', data.content);
+  set('issueDate', data.date); set('changeDeadline', data.changeDeadline); set('applicability', data.applicability);
+  set('sheet', 1); set('sheets', total); set('changeNo', data.izm);
   set('dev_name', data.dev); set('dev_date', data.dev ? data.date : '');
   set('check_name', data.check); set('check_date', data.check ? data.date : '');
   set('normControl_name', data.normControl); set('normControl_date', data.normControl ? data.date : '');
@@ -1885,6 +1927,12 @@ async function buildNoticePdfBytes(data, assets) {
   for (var s2 = 2; s2 <= total; s2++) {
     set('L' + s2 + '_notice', data.number); set('L' + s2 + '_sheet', s2); set('L' + s2 + '_product', data.product);
   }
+
+  // Графа 18 "Содержание изменения" задумана пользователем как настоящая таблица
+  // (3 колонки), а не один текстовый абзац — шаблон сдаёт под неё только одно
+  // большое текстовое поле "content", поэтому это поле убирается, а сетка и
+  // текст рисуются прямо на странице в его же прямоугольнике.
+  drawContentTable(pdf.getPages()[0], form, font, data.content, data.contentDesignation);
 
   form.updateFieldAppearances(font);
   pdf.catalog.getOrCreateAcroForm().dict.set(PDFName.of('NeedAppearances'), PDFBool.False);

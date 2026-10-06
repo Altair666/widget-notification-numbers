@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.33.2</footer>
+<footer class="ver-footer">v0.33.3</footer>
 
 <script>
 'use strict';
@@ -1852,8 +1852,8 @@ function gatherNoticeData(r) {
 // Таблица графы 18: строки = документы (компоненты) извещения, строка 7 мм;
 // при одном компоненте колонки "Изм." нет; "Обозначение" по ширине самой
 // длинной записи; "Примечание" переносится по словам и растягивает последнюю
-// строку (текст не разрывается и на лист 1а не выносится). Отступ 10 мм от
-// рамки слева и справа; строки на следующий лист (1а) уходят только по числу строк.
+// строку. Если текст не влезает на лист, его остаток уходит на лист 1а вместе
+// с оставшимися строками. Отступ 20 мм сверху, 10 мм слева, справа и снизу.
 var NOTICE_MM = 72 / 25.4;
 
 function noticeWrapLines(text, font, size, maxW) {
@@ -1871,28 +1871,30 @@ function noticeWrapLines(text, font, size, maxW) {
 }
 
 function noticeTableGeometry(rect, font, rows) {
-  var mm = NOTICE_MM, bs = 9, rowH = 7 * mm, inset = 10 * mm;
+  var mm = NOTICE_MM, bs = 9, rowH = 7 * mm, inset = 10 * mm, gapTop = 20 * mm;
   var w = rect.width - 2 * inset;
   var hasIzm = rows.length > 1;
   var col1 = hasIzm ? 10 * mm : 0;
   var longest = 0;
   rows.forEach(function (r) { longest = Math.max(longest, font.widthOfTextAtSize(String(r.obozn || ''), bs)); });
   var col2 = Math.min(w - col1 - 40, longest + 8);
-  var capacity = Math.max(1, Math.floor((rect.height - inset) / rowH) - 1);
+  var leading = bs + 2;
+  var availBody = rect.height - gapTop - inset - rowH;
   return {
-    x: rect.x + inset, top: rect.y + rect.height, w: w, hasIzm: hasIzm,
+    x: rect.x + inset, top: rect.y + rect.height - gapTop, w: w, hasIzm: hasIzm,
     col1: col1, col2: col2, col3: w - col1 - col2,
-    rowH: rowH, bs: bs, capacity: capacity
+    rowH: rowH, bs: bs, leading: leading,
+    capacity: Math.max(1, Math.floor(availBody / rowH)),
+    capLines: Math.max(1, Math.floor((availBody - 7 - bs) / leading) + 1)
   };
 }
 
-function drawNoticeTable(page, font, geo, chunk, reasonText) {
+function drawNoticeTable(page, font, geo, chunk, lines) {
   var black = PDFLib.rgb(0, 0, 0);
   var x = geo.x, w = geo.w, rowH = geo.rowH, bs = geo.bs, hs = 8;
   var top = geo.top, bodyTop = top - rowH;
   var n = chunk.length;
-  var leading = bs + 2;
-  var lines = noticeWrapLines(reasonText, font, bs, geo.col3 - 8);
+  var leading = geo.leading;
   var textH = 3 + bs + (lines.length - 1) * leading + 4;
   var bodyH = Math.max(n * rowH, textH);
   var bottom = bodyTop - bodyH;
@@ -1956,11 +1958,14 @@ async function buildNoticePdfBytes(data, assets) {
   var rows = (data.contentRows && data.contentRows.length) ? data.contentRows : [{ izm: '—', obozn: '' }];
   var geo1 = noticeTableGeometry(rect1, font, rows);
   var geo2 = noticeTableGeometry(rect2, font, rows);
+  var reasonLines = noticeWrapLines(data.contentReason, font, geo1.bs, geo1.col3 - 8);
   var chunks = [];
-  for (var idx = 0; idx < rows.length;) {
-    var cap = chunks.length ? geo2.capacity : geo1.capacity;
-    chunks.push(rows.slice(idx, idx + cap));
-    idx += cap;
+  for (var ri = 0, li = 0; ri < rows.length || li < reasonLines.length;) {
+    var geo = chunks.length ? geo2 : geo1;
+    var rowsPage = rows.slice(ri, ri + geo.capacity);
+    var linesPage = reasonLines.slice(li, li + geo.capLines);
+    chunks.push({ rows: rowsPage, lines: linesPage });
+    ri += rowsPage.length; li += linesPage.length;
   }
 
   var total = chunks.length;
@@ -1969,7 +1974,7 @@ async function buildNoticePdfBytes(data, assets) {
     var page = copied[0];
     page.node.delete(PDFName.of('Annots'));
     pdf.addPage(page);
-    drawNoticeTable(page, font, geo2, chunks[s - 1], data.contentReason);
+    drawNoticeTable(page, font, geo2, chunks[s - 1].rows, chunks[s - 1].lines);
     tplFields.forEach(function (t) {
       if (t.name === 'content') return;
       var f = form.createTextField('L' + s + '_' + t.name);
@@ -2012,7 +2017,7 @@ async function buildNoticePdfBytes(data, assets) {
   var contentField = form.getTextField('content');
   contentField.defaultUpdateAppearances(font);
   form.removeField(contentField);
-  drawNoticeTable(pdf.getPages()[0], font, geo1, chunks[0], data.contentReason);
+  drawNoticeTable(pdf.getPages()[0], font, geo1, chunks[0].rows, chunks[0].lines);
 
   form.updateFieldAppearances(font);
   pdf.catalog.getOrCreateAcroForm().dict.set(PDFName.of('NeedAppearances'), PDFBool.False);

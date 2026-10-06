@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.33.0</footer>
+<footer class="ver-footer">v0.33.1</footer>
 
 <script>
 'use strict';
@@ -1896,7 +1896,7 @@ function drawNoticeTable(page, font, geo, chunk, reasonText) {
   page.drawLine({ start: { x: x, y: bodyTop }, end: { x: x + w, y: bodyTop }, thickness: 0.75, color: black });
   for (var i = 1; i < bodyRows; i++) {
     var ly = bodyTop - i * rowH;
-    page.drawLine({ start: { x: x, y: ly }, end: { x: x + w, y: ly }, thickness: 0.4, color: black });
+    page.drawLine({ start: { x: x, y: ly }, end: { x: x + geo.col1 + geo.col2, y: ly }, thickness: 0.4, color: black });
   }
   var vx1 = x + geo.col1, vx2 = x + geo.col1 + geo.col2;
   page.drawLine({ start: { x: vx1, y: top - rowH }, end: { x: vx1, y: bottom }, thickness: 0.75, color: black });

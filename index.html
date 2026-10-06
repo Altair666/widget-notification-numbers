@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.30.2</footer>
+<footer class="ver-footer">v0.31.0</footer>
 
 <script>
 'use strict';
@@ -1794,21 +1794,20 @@ function loadNoticePdfAssets() {
   return noticePdfAssetsPromise;
 }
 
-// Графа 18 "Содержание изменения" (таблица "Изменение" | "Обозначение вход.
-// документов" | "Причина") и графа 3 "Обозначение" на листе 1: если к
-// извещению привязан ровно 1 документ — "Изменение" берётся с самого
-// компонента/документа (inventory_book.Note, НЕ ChangeReason извещения —
-// это другая причина, см. правку пользователя 2026-10-06), "Обозначение" —
-// его обозначение; если больше 1 — "—" / "см. ниже" (построчной
-// расшифровки по каждому документу в Grist пока нет — ограничение текущей
-// версии). Колонка "Причина" в таблице графы 18 всегда остаётся пустой.
-function noticeContentFields(r) {
-  var docs = resolveDocsForRecord(r);
-  if (docs.length === 1) {
-    var inv = docs[0].id != null ? state.inventoryById[docs[0].id] : null;
-    return { obozn: docs[0].designation || '', change: inv ? (inv.reason || '') : '' };
-  }
-  return { obozn: 'см. ниже', change: '—' };
+// Графа 18 "Содержание изменения" — таблица с одной строкой НА КАЖДЫЙ
+// привязанный к извещению документ (не единственная сводная строка):
+// "Изменение" — его собственное изменение (inventory_book.Note), "Обозначение
+// вход. документов" — его обозначение. Если документов вообще нет — одна
+// строка-заглушка с прочерком в "Изменение" (правка пользователя 2026-10-06).
+// Графа 3 "Обозначение" на листе 1 (отдельное поле шапки, НЕ часть таблицы) —
+// если документ один, его обозначение; если их больше одного — "см. ниже".
+function noticeContentRows(r) {
+  var docs = resolveDocsForRecord(r).filter(function (d) { return d.designation; });
+  if (!docs.length) return [{ obozn: '', change: '—' }];
+  return docs.map(function (d) {
+    var inv = d.id != null ? state.inventoryById[d.id] : null;
+    return { obozn: d.designation || '', change: inv ? (inv.reason || '') : '' };
+  });
 }
 
 function noticeEmployeeName(id) {
@@ -1821,17 +1820,17 @@ function noticeEmployeeName(id) {
 // (закупные/QI) оставляем пустой — так решил пользователь 2026-10-06.
 function gatherNoticeData(r) {
   var refs = state.roleRefsById[r.id] || {};
-  var content = noticeContentFields(r);
+  var rows = noticeContentRows(r);
   var comp = state.componentsById[r.Product];
   return {
     org: 'ООО «ЛМП»',
     number: r.Number || '',
-    designation: content.obozn,
+    designation: rows.length === 1 ? (rows[0].obozn || '') : 'см. ниже',
     product: productLabelForRecord(r),
     applicability: comp ? (comp.decimal_number || '') : '',
     changeDeadline: formatDate(refs.ChangeDeadline),
-    content: content.change,
-    contentDesignation: content.obozn,
+    contentRows: rows,
+    contentReason: r.ChangeReason || '',
     date: formatDate(r.IssueDate),
     izm: '', // графа 17 — номер изменения по счёту, пока не решено (см. чат от 2026-10-06), оставляем пустым
     dev: noticeEmployeeName(refs.Developer),
@@ -1846,8 +1845,11 @@ function gatherNoticeData(r) {
 // вход. документов" | "Причина" — внутри прямоугольника существующего поля
 // "content" из шаблона, затем убирает само текстовое поле (оно остаётся
 // пустым прямоугольником поверх нарисованной таблицы, если его не убрать).
-// Колонка "Причина" всегда пустая (решение пользователя 2026-10-06).
-function drawContentTable(page, form, font, changeText, oboznText) {
+// rows — одна запись на каждый привязанный документ (см. noticeContentRows);
+// reasonText — ChangeReason извещения, пишется один раз в "Причину" (общая
+// причина для всего извещения, а не по-документная) — правка пользователя
+// 2026-10-06. Черновая раскладка: доработаем после того, как увидим вживую.
+function drawContentTable(page, form, font, rows, reasonText) {
   var field;
   try { field = form.getTextField('content'); } catch (e) { return; }
   var rect = field.acroField.getWidgets()[0].getRectangle();
@@ -1878,9 +1880,17 @@ function drawContentTable(page, form, font, changeText, oboznText) {
   center('Обозначение вход. документов', x + col1 + col2 / 2, y + h - 2, hs);
   center('Причина', x + col1 + col2 + col3 / 2, y + h - 2, hs);
 
-  var bodyTop = y + h - headerH - 3;
-  page.drawText(String(changeText || ''), { x: x + 3, y: bodyTop - bs, size: bs, font: font });
-  page.drawText(String(oboznText || ''), { x: x + col1 + 3, y: bodyTop - bs, size: bs, font: font });
+  var bodyTop = y + h - headerH;
+  var rowH = bs + 5;
+  var list = (rows && rows.length) ? rows : [{ obozn: '', change: '' }];
+  list.forEach(function (row, i) {
+    var rowTop = bodyTop - i * rowH;
+    if (i > 0) page.drawLine({ start: { x: x, y: rowTop }, end: { x: x + w, y: rowTop }, thickness: 0.4, color: black });
+    var textY = rowTop - bs - 2;
+    page.drawText(String(row.change || ''), { x: x + 3, y: textY, size: bs, font: font });
+    page.drawText(String(row.obozn || ''), { x: x + col1 + 3, y: textY, size: bs, font: font });
+  });
+  page.drawText(String(reasonText || ''), { x: x + col1 + col2 + 3, y: bodyTop - bs - 2, size: bs, font: font });
 }
 
 async function buildNoticePdfBytes(data, assets) {
@@ -1938,7 +1948,7 @@ async function buildNoticePdfBytes(data, assets) {
   // (3 колонки), а не один текстовый абзац — шаблон сдаёт под неё только одно
   // большое текстовое поле "content", поэтому это поле убирается, а сетка и
   // текст рисуются прямо на странице в его же прямоугольнике.
-  drawContentTable(pdf.getPages()[0], form, font, data.content, data.contentDesignation);
+  drawContentTable(pdf.getPages()[0], form, font, data.contentRows, data.contentReason);
 
   form.updateFieldAppearances(font);
   pdf.catalog.getOrCreateAcroForm().dict.set(PDFName.of('NeedAppearances'), PDFBool.False);

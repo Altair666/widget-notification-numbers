@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.33.3</footer>
+<footer class="ver-footer">v0.33.4</footer>
 
 <script>
 'use strict';
@@ -1853,7 +1853,7 @@ function gatherNoticeData(r) {
 // при одном компоненте колонки "Изм." нет; "Обозначение" по ширине самой
 // длинной записи; "Примечание" переносится по словам и растягивает последнюю
 // строку. Если текст не влезает на лист, его остаток уходит на лист 1а вместе
-// с оставшимися строками. Отступ 20 мм сверху, 10 мм слева, справа и снизу.
+// с оставшимися строками. Отступ 10 мм со всех сторон.
 var NOTICE_MM = 72 / 25.4;
 
 function noticeWrapLines(text, font, size, maxW) {
@@ -1871,7 +1871,7 @@ function noticeWrapLines(text, font, size, maxW) {
 }
 
 function noticeTableGeometry(rect, font, rows) {
-  var mm = NOTICE_MM, bs = 9, rowH = 7 * mm, inset = 10 * mm, gapTop = 20 * mm;
+  var mm = NOTICE_MM, bs = 9, rowH = 7 * mm, inset = 10 * mm, gapTop = 10 * mm;
   var w = rect.width - 2 * inset;
   var hasIzm = rows.length > 1;
   var col1 = hasIzm ? 10 * mm : 0;

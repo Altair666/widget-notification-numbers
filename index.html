@@ -185,8 +185,6 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .emp-arrow{position:absolute;right:3px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:20px;height:20px;border:none;background:transparent;color:var(--tx3);cursor:pointer;padding:0;border-radius:4px}
 .emp-arrow:hover{background:var(--acc-bg);color:var(--acc)}
 
-.toggle-list-row{display:flex;justify-content:flex-end;margin:-2px 0 10px}
-
 .preset-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-2px 0 10px}
 .preset-chip{display:flex;align-items:center;gap:5px;background:var(--surf2);border:1px solid var(--brd);border-radius:12px;padding:3px 4px 3px 10px;font-size:11px;color:var(--tx2);cursor:pointer;transition:all .12s}
 .preset-chip:hover{background:var(--acc-bg);color:var(--acc);border-color:var(--acc-brd)}
@@ -220,7 +218,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
     </div>
     <div class="pb">
 
-      <div class="form-row" style="grid-template-columns:110px 110px 110px 1fr 1fr 1fr 1fr">
+      <div class="form-row" style="grid-template-columns:110px 110px 110px 1fr 1fr 1fr 1fr 150px">
         <div class="form-group">
           <label class="form-label">№ извещения</label>
           <div class="form-input mono formed-num" id="fNoticeNum">—</div>
@@ -261,13 +259,13 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
             <button type="button" class="emp-arrow" id="fApproverArrow" tabindex="-1" title="Выбрать из списка"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button>
           </div>
         </div>
+        <div class="form-group" style="align-items:flex-end">
+          <label class="form-label">&nbsp;</label>
+          <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:auto;padding:8px 16px">Показать список</button>
+        </div>
       </div>
 
       <div class="preset-bar" id="presetsBar"></div>
-
-      <div class="toggle-list-row">
-        <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:auto;padding:8px 16px">Показать список</button>
-      </div>
 
       <div id="productsList"><div class="gen-empty">Загрузка…</div></div>
 
@@ -305,7 +303,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.28.2</footer>
+<footer class="ver-footer">v0.28.3</footer>
 
 <script>
 'use strict';

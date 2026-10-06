@@ -209,9 +209,6 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
             <button class="icon-btn form-date-btn" id="btnToggleHidden" title="Показать скрытые">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
-            <button class="icon-btn form-date-btn" id="btnHideZero" title="Скрыть документы с изм. 0 (исходный выпуск)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="'IBM Plex Mono',monospace" stroke="none" fill="currentColor">0</text></svg>
-            </button>
           </div>
         </div>
         <div class="form-group" style="align-items:flex-end">
@@ -256,7 +253,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.26.12</footer>
+<footer class="ver-footer">v0.26.13</footer>
 
 <script>
 'use strict';
@@ -268,8 +265,7 @@ var NOTICE_TABLE_CANDIDATES = ['Notice_of_change'];
 var DEFAULT_OPTIONS = {
   componentsTableId: '',
   inventoryTableId: '',
-  hiddenDocs: {},
-  hideZeroPending: false
+  hiddenDocs: {}
 };
 
 var state = {
@@ -295,7 +291,6 @@ var state = {
 
   hiddenKeys: {},   // productId -> true, persisted in Grist widget options (options.hiddenDocs)
   showHidden: false, // whether hidden product groups are currently revealed in the accordion (view-only toggle)
-  hideZeroPending: false, // view-only toggle: hide pending-registration items with ChangeNumber 0 (исходный выпуск, not a real change)
 
   regYearFilter: null, // число года или null («Все») — фильтр реестра по году IssueDate, см. баблы в шапке реестра
 
@@ -331,8 +326,6 @@ grist.onOptions(function (options) {
   optionsLoadedOnce = true;
   state.options = Object.assign({}, DEFAULT_OPTIONS, options || {});
   state.hiddenKeys = state.options.hiddenDocs || {};
-  state.hideZeroPending = !!state.options.hideZeroPending;
-  syncHideZeroBtn();
   if (first || state.options.componentsTableId !== prevComponentsId) loadComponents();
   if (first || state.options.inventoryTableId !== prevInventoryId) loadInventoryBook();
   renderProductsList();
@@ -730,14 +723,13 @@ function getVisibleProductGroups() {
   var groups = state.productGroups.filter(function (g) {
     return !isProductHidden(g.productId) || state.showHidden;
   });
-  if (state.hideZeroPending) {
-    groups = groups
-      .map(function (g) {
-        var list = g.list.filter(function (item) { return Number(item.version) !== 0; });
-        return list.length === g.list.length ? g : Object.assign({}, g, { list: list });
-      })
-      .filter(function (g) { return g.list.length > 0; });
-  }
+  // Исходный выпуск (изм. 0) — не изменение, незачем предлагать его к извещению.
+  groups = groups
+    .map(function (g) {
+      var list = g.list.filter(function (item) { return Number(item.version) !== 0; });
+      return list.length === g.list.length ? g : Object.assign({}, g, { list: list });
+    })
+    .filter(function (g) { return g.list.length > 0; });
   return groups;
 }
 
@@ -1356,7 +1348,8 @@ function editableRow(r) {
     var usedIds = {};
     currentDocs.forEach(function (d) { if (d.invId != null) usedIds[d.invId] = true; });
     var available = state.inventoryRows.filter(function (row) {
-      return !takenIds[row.id] && !usedIds[row.id];
+      // Исходный выпуск (изм. 0) — не изменение, незачем предлагать его к извещению.
+      return !takenIds[row.id] && !usedIds[row.id] && Number(row.changeNumber) !== 0;
     }).slice().sort(function (a, b) {
       return String(a.designation).localeCompare(String(b.designation), undefined, { numeric: true });
     });
@@ -1554,22 +1547,6 @@ btnToggleHidden.addEventListener('click', function () {
   btnToggleHidden.classList.toggle('on', state.showHidden);
   btnToggleHidden.title = state.showHidden ? 'Скрыть показ скрытых' : 'Показать скрытые';
   btnToggleHidden.innerHTML = state.showHidden ? EYE_OFF_ICON : EYE_ICON;
-  renderProductsList();
-});
-
-var ZERO_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="\'IBM Plex Mono\',monospace" stroke="none" fill="currentColor">0</text></svg>';
-var ZERO_OFF_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="\'IBM Plex Mono\',monospace" stroke="none" fill="currentColor">0</text><line x1="5" y1="19" x2="19" y2="5"/></svg>';
-
-var btnHideZero = document.getElementById('btnHideZero');
-function syncHideZeroBtn() {
-  btnHideZero.classList.toggle('on', state.hideZeroPending);
-  btnHideZero.title = state.hideZeroPending ? 'Показать документы с изм. 0' : 'Скрыть документы с изм. 0 (исходный выпуск)';
-  btnHideZero.innerHTML = state.hideZeroPending ? ZERO_OFF_ICON : ZERO_ICON;
-}
-btnHideZero.addEventListener('click', function () {
-  state.hideZeroPending = !state.hideZeroPending;
-  syncHideZeroBtn();
-  grist.setOption('hideZeroPending', state.hideZeroPending);
   renderProductsList();
 });
 

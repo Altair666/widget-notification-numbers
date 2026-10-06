@@ -314,7 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.32.1</footer>
+<footer class="ver-footer">v0.33.0</footer>
 
 <script>
 'use strict';
@@ -1839,8 +1839,7 @@ function gatherNoticeData(r) {
     dev: noticeEmployeeName(refs.Developer),
     check: noticeEmployeeName(refs.Checker),
     normControl: noticeEmployeeName(refs.NormControl),
-    approve: noticeEmployeeName(refs.Approver),
-    extraSheets: 0
+    approve: noticeEmployeeName(refs.Approver)
   };
 }
 
@@ -1850,49 +1849,81 @@ function gatherNoticeData(r) {
 // (см. noticeContentRows); reasonText — ChangeReason извещения, пишется один
 // раз в "Примечание" (общее для всего извещения). Колонка "Изм." — 13 мм,
 // как официальная ячейка "Изм." в шапке графы 18 (make_forms_r50mod2.py:header_xth).
-function drawContentTable(page, form, font, rows, reasonText) {
-  var field;
-  try { field = form.getTextField('content'); } catch (e) { return; }
-  var rect = field.acroField.getWidgets()[0].getRectangle();
-  // form.removeField() looks up the widget's existing /AP /N appearance stream
-  // internally (PDFForm.findWidgetAppearanceRef) and throws "Unexpected N type:
-  // undefined" if the field was never rendered — this field is freshly loaded
-  // from the template and has no value, so it has no appearance yet. Generating
-  // one first avoids the crash.
-  field.defaultUpdateAppearances(font);
-  form.removeField(field);
+// Геометрия таблицы графы 18 по правилам бланка: отступ 10 мм от рамки слева,
+// справа и снизу; строки 7 мм; колонка "Изм." 10 мм; "Обозначение" по ширине
+// самой длинной записи; остаток — "Примечание" (переносится по словам).
+// Вверху две полоски по 7 мм: заголовок "Содержание изменения" и подписи колонок.
+var NOTICE_MM = 72 / 25.4;
 
-  var x = rect.x, y = rect.y, w = rect.width, h = rect.height;
-  var headerH = Math.min(14, h / 4);
-  var col1 = Math.min(36.85, w * 0.2), col2 = w * 0.5, col3 = w - col1 - col2;
+function noticeWrapLines(text, font, size, maxW) {
+  var out = [];
+  String(text || '').split('\n').forEach(function (para) {
+    var line = '';
+    para.split(/\s+/).forEach(function (word) {
+      var cand = line ? line + ' ' + word : word;
+      if (!line || font.widthOfTextAtSize(cand, size) <= maxW) line = cand;
+      else { out.push(line); line = word; }
+    });
+    out.push(line);
+  });
+  return out;
+}
+
+function noticeTableGeometry(rect, font, rows) {
+  var mm = NOTICE_MM, bs = 9, rowH = 7 * mm, inset = 10 * mm;
+  var w = rect.width - 2 * inset;
+  var col1 = 10 * mm;
+  var longest = 0;
+  rows.forEach(function (r) { longest = Math.max(longest, font.widthOfTextAtSize(String(r.obozn || ''), bs)); });
+  var col2 = Math.min(w - col1 - 40, longest + 8);
+  var capacity = Math.max(1, Math.floor((rect.height - inset) / rowH) - 2);
+  return {
+    x: rect.x + inset, w: w, col1: col1, col2: col2, col3: w - col1 - col2,
+    rowH: rowH, bs: bs, capacity: capacity,
+    bottom: rect.y + inset, top: rect.y + inset + (capacity + 2) * rowH
+  };
+}
+
+function drawNoticeTable(page, font, geo, chunk, reasonText) {
   var black = PDFLib.rgb(0, 0, 0);
+  var x = geo.x, w = geo.w, rowH = geo.rowH, bs = geo.bs, hs = 8;
+  var top = geo.top, bottom = geo.bottom;
+  var bodyTop = top - 2 * rowH;
+  var bodyRows = geo.capacity;
 
-  page.drawLine({ start: { x: x, y: y + h - headerH }, end: { x: x + w, y: y + h - headerH }, thickness: 0.75, color: black });
-  page.drawLine({ start: { x: x + col1, y: y }, end: { x: x + col1, y: y + h }, thickness: 0.75, color: black });
-  page.drawLine({ start: { x: x + col1 + col2, y: y }, end: { x: x + col1 + col2, y: y + h }, thickness: 0.75, color: black });
+  page.drawRectangle({ x: x, y: bottom, width: w, height: top - bottom, borderColor: black, borderWidth: 0.75 });
+  page.drawLine({ start: { x: x, y: top - rowH }, end: { x: x + w, y: top - rowH }, thickness: 0.75, color: black });
+  page.drawLine({ start: { x: x, y: bodyTop }, end: { x: x + w, y: bodyTop }, thickness: 0.75, color: black });
+  for (var i = 1; i < bodyRows; i++) {
+    var ly = bodyTop - i * rowH;
+    page.drawLine({ start: { x: x, y: ly }, end: { x: x + w, y: ly }, thickness: 0.4, color: black });
+  }
+  var vx1 = x + geo.col1, vx2 = x + geo.col1 + geo.col2;
+  page.drawLine({ start: { x: vx1, y: top - rowH }, end: { x: vx1, y: bottom }, thickness: 0.75, color: black });
+  page.drawLine({ start: { x: vx2, y: top - rowH }, end: { x: vx2, y: bottom }, thickness: 0.75, color: black });
 
-  var hs = 8, bs = 9;
-  function center(text, cx, topY, size) {
+  function center(text, cx, rowTop, size) {
     text = String(text || '');
     var tw = font.widthOfTextAtSize(text, size);
-    page.drawText(text, { x: cx - tw / 2, y: topY - size, size: size, font: font });
+    page.drawText(text, { x: cx - tw / 2, y: rowTop - rowH / 2 - size * 0.35, size: size, font: font });
   }
-  center('Изм.', x + col1 / 2, y + h - 2, hs);
-  center('Обозначение', x + col1 + col2 / 2, y + h - 2, hs);
-  center('Примечание', x + col1 + col2 + col3 / 2, y + h - 2, hs);
+  center('Содержание изменения', x + w / 2, top, hs);
+  center('Изм.', x + geo.col1 / 2, top - rowH, hs);
+  center('Обозначение', x + geo.col1 + geo.col2 / 2, top - rowH, hs);
+  center('Примечание', x + geo.col1 + geo.col2 + geo.col3 / 2, top - rowH, hs);
 
-  var bodyTop = y + h - headerH;
-  var rowH = bs + 5;
-  var list = (rows && rows.length) ? rows : [{ izm: '—', obozn: '' }];
-  list.forEach(function (row, i) {
+  (chunk || []).forEach(function (row, i) {
     var rowTop = bodyTop - i * rowH;
-    if (i > 0) page.drawLine({ start: { x: x, y: rowTop }, end: { x: x + w, y: rowTop }, thickness: 0.4, color: black });
-    var textY = rowTop - bs - 2;
-    var izmW = font.widthOfTextAtSize(String(row.izm || ''), bs);
-    page.drawText(String(row.izm || ''), { x: x + col1 / 2 - izmW / 2, y: textY, size: bs, font: font });
-    page.drawText(String(row.obozn || ''), { x: x + col1 + 3, y: textY, size: bs, font: font });
+    var baseline = rowTop - rowH / 2 - bs * 0.35;
+    var izm = String(row.izm || '—');
+    page.drawText(izm, { x: x + geo.col1 / 2 - font.widthOfTextAtSize(izm, bs) / 2, y: baseline, size: bs, font: font });
+    page.drawText(String(row.obozn || ''), { x: vx1 + 4, y: baseline, size: bs, font: font });
   });
-  page.drawText(String(reasonText || ''), { x: x + col1 + col2 + 3, y: bodyTop - bs - 2, size: bs, font: font });
+
+  var leading = bs + 2;
+  noticeWrapLines(reasonText, font, bs, geo.col3 - 8).forEach(function (line, i) {
+    page.drawText(line, { x: vx2 + 4, y: bodyTop - 3 - bs - i * leading, size: bs, font: font });
+  });
 }
 
 async function buildNoticePdfBytes(data, assets) {
@@ -1915,13 +1946,27 @@ async function buildNoticePdfBytes(data, assets) {
     };
   });
 
-  var total = 1 + (data.extraSheets || 0);
+  var rect1 = form.getTextField('content').acroField.getWidgets()[0].getRectangle();
+  var rect2 = tplA.getForm().getTextField('content').acroField.getWidgets()[0].getRectangle();
+  var rows = (data.contentRows && data.contentRows.length) ? data.contentRows : [{ izm: '—', obozn: '' }];
+  var geo1 = noticeTableGeometry(rect1, font, rows);
+  var geo2 = noticeTableGeometry(rect2, font, rows);
+  var chunks = [];
+  for (var idx = 0; idx < rows.length;) {
+    var cap = chunks.length ? geo2.capacity : geo1.capacity;
+    chunks.push(rows.slice(idx, idx + cap));
+    idx += cap;
+  }
+
+  var total = chunks.length;
   for (var s = 2; s <= total; s++) {
     var copied = await pdf.copyPages(tplA, [0]);
     var page = copied[0];
     page.node.delete(PDFName.of('Annots'));
     pdf.addPage(page);
+    drawNoticeTable(page, font, geo2, chunks[s - 1], data.contentReason);
     tplFields.forEach(function (t) {
+      if (t.name === 'content') return;
       var f = form.createTextField('L' + s + '_' + t.name);
       if (t.multiline) f.enableMultiline();
       f.addToPage(page, { x: t.rect.x, y: t.rect.y, width: t.rect.width, height: t.rect.height, borderWidth: 0, borderColor: undefined, backgroundColor: undefined, font: font });
@@ -1956,11 +2001,13 @@ async function buildNoticePdfBytes(data, assets) {
     set('L' + s2 + '_notice', data.number); set('L' + s2 + '_sheet', s2); set('L' + s2 + '_product', data.product);
   }
 
-  // Графа 18 "Содержание изменения" задумана пользователем как настоящая таблица
-  // (3 колонки), а не один текстовый абзац — шаблон сдаёт под неё только одно
-  // большое текстовое поле "content", поэтому это поле убирается, а сетка и
-  // текст рисуются прямо на странице в его же прямоугольнике.
-  drawContentTable(pdf.getPages()[0], form, font, data.contentRows, data.contentReason);
+  // form.removeField() ищет /AP /N у виджета (PDFForm.findWidgetAppearanceRef) и
+  // падает "Unexpected N type: undefined", если его ещё не было — поэтому сначала
+  // генерируем внешний вид.
+  var contentField = form.getTextField('content');
+  contentField.defaultUpdateAppearances(font);
+  form.removeField(contentField);
+  drawNoticeTable(pdf.getPages()[0], font, geo1, chunks[0], data.contentReason);
 
   form.updateFieldAppearances(font);
   pdf.catalog.getOrCreateAcroForm().dict.set(PDFName.of('NeedAppearances'), PDFBool.False);

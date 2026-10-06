@@ -43,7 +43,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .icon-btn.on{background:var(--grn-bg);color:var(--grn);border-color:var(--grn-brd)}
 .icon-btn.on:hover{background:var(--grn-bg);color:var(--grn)}
 
-.form-row{display:grid;gap:10px;margin-bottom:10px}
+.form-row{display:grid;gap:8px;margin-bottom:10px}
 .form-group{display:flex;flex-direction:column;gap:4px}
 .form-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--tx2)}
 .form-hint{font-size:10px;color:var(--tx3);min-height:14px}
@@ -175,6 +175,19 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .docs-editor-option:hover{background:var(--acc-bg);color:var(--acc)}
 .docs-editor-option-empty{padding:5px 8px;font-size:11px;color:var(--tx2);cursor:default}
 
+.emp-dropdown{position:fixed;background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);max-height:170px;overflow-y:auto;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.emp-option{padding:6px 9px;font-size:12px;color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.emp-option:hover{background:var(--acc-bg);color:var(--acc)}
+.emp-option-empty{padding:6px 9px;font-size:12px;color:var(--tx2);cursor:default}
+
+.preset-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-2px 0 10px}
+.preset-chip{display:flex;align-items:center;gap:5px;background:var(--surf2);border:1px solid var(--brd);border-radius:12px;padding:3px 4px 3px 10px;font-size:11px;color:var(--tx2);cursor:pointer;transition:all .12s}
+.preset-chip:hover{background:var(--acc-bg);color:var(--acc);border-color:var(--acc-brd)}
+.preset-chip-remove{display:flex;align-items:center;justify-content:center;width:16px;height:16px;border:none;background:transparent;color:var(--tx3);cursor:pointer;font-size:12px;line-height:1;border-radius:50%}
+.preset-chip-remove:hover{background:var(--red-bg);color:var(--red)}
+.preset-add{display:flex;align-items:center;gap:4px;background:transparent;border:1px dashed var(--brd2);border-radius:12px;padding:3px 10px;font-size:11px;color:var(--tx2);cursor:pointer;transition:all .12s}
+.preset-add:hover{background:var(--surf3);color:var(--tx)}
+
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:4pt}
@@ -188,10 +201,21 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="panel">
     <div class="ph">
       <span class="ph-title">Регистрация извещения</span>
+      <div style="display:flex;gap:4px">
+        <button class="icon-btn form-date-btn" id="btnRefreshDocs" title="Обновить подборку из inventory_book">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <button class="icon-btn form-date-btn" id="btnToggleHidden" title="Показать скрытые">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <button class="icon-btn form-date-btn" id="btnShowZero" title="Показать документы с изм. 0 (исходный выпуск)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="'IBM Plex Mono',monospace" stroke="none" fill="currentColor">0</text></svg>
+        </button>
+      </div>
     </div>
     <div class="pb">
 
-      <div class="form-row" style="grid-template-columns:130px 130px 76px 1fr">
+      <div class="form-row" style="grid-template-columns:110px 110px 110px 1fr 1fr 1fr 1fr 150px">
         <div class="form-group">
           <label class="form-label">№ извещения</label>
           <div class="form-input mono formed-num" id="fNoticeNum">—</div>
@@ -200,48 +224,33 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
           <label class="form-label">Дата выпуска</label>
           <input class="form-input mono" type="date" id="fDate" onchange="onIssueDateChange()">
         </div>
-        <div class="form-group" style="align-items:flex-start">
-          <label class="form-label">&nbsp;</label>
-          <div style="display:flex;gap:4px">
-            <button class="icon-btn form-date-btn" id="btnRefreshDocs" title="Обновить подборку из inventory_book">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            </button>
-            <button class="icon-btn form-date-btn" id="btnToggleHidden" title="Показать скрытые">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-            <button class="icon-btn form-date-btn" id="btnShowZero" title="Показать документы с изм. 0 (исходный выпуск)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="10" font-family="'IBM Plex Mono',monospace" stroke="none" fill="currentColor">0</text></svg>
-            </button>
-          </div>
-        </div>
-        <div class="form-group" style="align-items:flex-end">
-          <label class="form-label">&nbsp;</label>
-          <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:155px;padding:8px 16px;margin-right:7px">Показать список</button>
-        </div>
-      </div>
-
-      <div class="form-row" style="grid-template-columns:1fr 1fr 1fr 1fr 130px;margin-top:0">
-        <div class="form-group">
-          <label class="form-label">Разработал</label>
-          <input class="form-input" type="text" id="fDeveloper">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Проверил</label>
-          <input class="form-input" type="text" id="fChecker">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Нормоконтроль</label>
-          <input class="form-input" type="text" id="fNormControl">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Утвердил</label>
-          <input class="form-input" type="text" id="fApprover">
-        </div>
         <div class="form-group">
           <label class="form-label">Срок изменения</label>
           <input class="form-input mono" type="date" id="fDeadline" oninput="state.deadlineEdited=true">
         </div>
+        <div class="form-group">
+          <label class="form-label">Разработал</label>
+          <input class="form-input" type="text" id="fDeveloper" autocomplete="off" placeholder="Фамилия…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Проверил</label>
+          <input class="form-input" type="text" id="fChecker" autocomplete="off" placeholder="Фамилия…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Нормоконтроль</label>
+          <input class="form-input" type="text" id="fNormControl" autocomplete="off" placeholder="Фамилия…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Утвердил</label>
+          <input class="form-input" type="text" id="fApprover" autocomplete="off" placeholder="Фамилия…">
+        </div>
+        <div class="form-group" style="align-items:flex-end">
+          <label class="form-label">&nbsp;</label>
+          <button class="btn-add" id="btnToggleAllProducts" type="button" style="width:150px;padding:8px 16px">Показать список</button>
+        </div>
       </div>
+
+      <div class="preset-bar" id="presetsBar"></div>
 
       <div id="productsList"><div class="gen-empty">Загрузка…</div></div>
 
@@ -279,7 +288,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.27.0</footer>
+<footer class="ver-footer">v0.28.0</footer>
 
 <script>
 'use strict';
@@ -287,12 +296,15 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 var COMPONENTS_TABLE_CANDIDATES = ['Components', 'components'];
 var INVENTORY_TABLE_CANDIDATES = ['inventory_book', 'Inventory_book', 'InventoryBook', 'Inventory_Book'];
 var NOTICE_TABLE_CANDIDATES = ['Notice_of_change'];
+var EMPLOYEES_TABLE_CANDIDATES = ['Employees', 'employees'];
 
 var DEFAULT_OPTIONS = {
   componentsTableId: '',
   inventoryTableId: '',
+  employeesTableId: '',
   hiddenDocs: {},
-  showZeroGroups: false
+  showZeroGroups: false,
+  presets: []
 };
 
 var state = {
@@ -309,6 +321,14 @@ var state = {
   inventoryTableId: null, // resolved real tableId of inventory_book (needed for RefList type/ModifyColumn)
   noticeTableId: null,    // resolved real tableId of this widget's own bound table (Notice_of_change)
   designationsColumnIsRef: false, // whether DocumentDesignations is already RefList (see detectDesignationsColumnType)
+
+  employees: [],          // [{id, name, canDevelop, canCheck, canNormControl, canApprove}, ...]
+  employeesById: {},
+  employeesLoaded: false,
+
+  // currently picked employee id (or null) for each of the 4 registration-form roles
+  selEmployees: { developer: null, checker: null, normControl: null, approver: null },
+  presets: [],            // [{label, developer, checker, normControl, approver}, ...] (employee ids), persisted in options.presets
 
   expandedProductIds: {}, // productId -> true, which accordion items are open
   showProductsList: false, // view-only, NOT persisted: hides/shows the entire #productsList block at once
@@ -354,12 +374,16 @@ grist.onOptions(function (options) {
   var prevInventoryId = state.options.inventoryTableId;
   var first = !optionsLoadedOnce;
   optionsLoadedOnce = true;
+  var prevEmployeesId = state.options.employeesTableId;
   state.options = Object.assign({}, DEFAULT_OPTIONS, options || {});
   state.hiddenKeys = state.options.hiddenDocs || {};
   state.showZeroGroups = !!state.options.showZeroGroups;
+  state.presets = state.options.presets || [];
   syncShowZeroBtn();
+  renderPresets();
   if (first || state.options.componentsTableId !== prevComponentsId) loadComponents();
   if (first || state.options.inventoryTableId !== prevInventoryId) loadInventoryBook();
+  if (first || state.options.employeesTableId !== prevEmployeesId) loadEmployees();
   renderProductsList();
 });
 
@@ -420,6 +444,48 @@ function loadComponents() {
       state.componentsLoaded = true;
       rebuildAllProductGroups();
       if (state.recordsLoaded) renderRegistry();
+    }).catch(function () { tryNext(i + 1); });
+  }
+  tryNext(0);
+}
+
+// ---------- Employees (Разработал/Проверил/Нормоконтроль/Утвердил pickers) ----------
+
+function employeesTableCandidates() {
+  if (state.options.employeesTableId) return [state.options.employeesTableId];
+  return EMPLOYEES_TABLE_CANDIDATES;
+}
+
+function loadEmployees() {
+  state.employeesLoaded = false;
+  var candidates = employeesTableCandidates();
+
+  function tryNext(i) {
+    if (i >= candidates.length) {
+      console.error('Не удалось найти таблицу сотрудников среди: ' + candidates.join(', '));
+      return;
+    }
+    grist.docApi.fetchTable(candidates[i]).then(function (table) {
+      var ids = table.id || [];
+      var list = [];
+      var byId = {};
+      ids.forEach(function (id, i2) {
+        var emp = {
+          id: id,
+          name: table.Name ? table.Name[i2] : '',
+          canDevelop: table.CanDevelop ? !!table.CanDevelop[i2] : false,
+          canCheck: table.CanCheck ? !!table.CanCheck[i2] : false,
+          canNormControl: table.CanNormControl ? !!table.CanNormControl[i2] : false,
+          canApprove: table.CanApprove ? !!table.CanApprove[i2] : false
+        };
+        list.push(emp);
+        byId[id] = emp;
+      });
+      list.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), undefined, { numeric: true }); });
+      state.employees = list;
+      state.employeesById = byId;
+      state.employeesLoaded = true;
+      renderPresets();
     }).catch(function () { tryNext(i + 1); });
   }
   tryNext(0);
@@ -1100,10 +1166,10 @@ function registerNotificationForProduct(g, btn) {
           return item.designation + (item.version != null ? '#' + item.version : '');
         }).join('\n') + '\n',
     ChangeReason: computeChangeReasonText(list),
-    Developer: document.getElementById('fDeveloper').value || '',
-    Checker: document.getElementById('fChecker').value || '',
-    NormControl: document.getElementById('fNormControl').value || '',
-    Approver: document.getElementById('fApprover').value || '',
+    Developer: state.selEmployees.developer || 0,
+    Checker: state.selEmployees.checker || 0,
+    NormControl: state.selEmployees.normControl || 0,
+    Approver: state.selEmployees.approver || 0,
     ChangeDeadline: inputValueToDate(document.getElementById('fDeadline').value)
   };
   btn.disabled = true;
@@ -1633,6 +1699,208 @@ btnShowZero.addEventListener('click', function () {
   grist.setOption('showZeroGroups', state.showZeroGroups);
   renderProductsList();
 });
+
+// ---------- Employee pickers (Разработал/Проверил/Нормоконтроль/Утвердил) ----------
+
+var EMPLOYEE_ROLE_FIELDS = [
+  { input: 'fDeveloper', role: 'developer', cap: 'canDevelop' },
+  { input: 'fChecker', role: 'checker', cap: 'canCheck' },
+  { input: 'fNormControl', role: 'normControl', cap: 'canNormControl' },
+  { input: 'fApprover', role: 'approver', cap: 'canApprove' }
+];
+var EMPLOYEE_PICKERS = {};
+
+function setupEmployeePicker(cfg) {
+  var input = document.getElementById(cfg.input);
+  if (!input) return;
+  var dropdown = null;
+  var repositionHandler = null;
+
+  function availableEmployees() {
+    return state.employees.filter(function (e) { return e[cfg.cap]; });
+  }
+
+  function closeDropdown() {
+    if (dropdown && dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
+    dropdown = null;
+    if (repositionHandler) {
+      window.removeEventListener('scroll', repositionHandler, true);
+      window.removeEventListener('resize', repositionHandler);
+      repositionHandler = null;
+    }
+  }
+
+  function positionDropdown() {
+    if (!dropdown) return;
+    var rect = input.getBoundingClientRect();
+    var margin = 2;
+    var maxH = 170;
+    var spaceBelow = window.innerHeight - rect.bottom;
+    var spaceAbove = rect.top;
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.width = rect.width + 'px';
+    if (spaceBelow < maxH && spaceAbove > spaceBelow) {
+      dropdown.style.top = '';
+      dropdown.style.bottom = (window.innerHeight - rect.top + margin) + 'px';
+      dropdown.style.maxHeight = Math.max(60, Math.min(maxH, spaceAbove - margin)) + 'px';
+    } else {
+      dropdown.style.bottom = '';
+      dropdown.style.top = (rect.bottom + margin) + 'px';
+      dropdown.style.maxHeight = Math.max(60, Math.min(maxH, spaceBelow - margin)) + 'px';
+    }
+  }
+
+  function selectEmployee(emp) {
+    state.selEmployees[cfg.role] = emp ? emp.id : null;
+    input.value = emp ? emp.name : '';
+  }
+
+  function renderOptions() {
+    if (!dropdown) return;
+    var q = input.value.trim().toLowerCase();
+    var matches = availableEmployees().filter(function (e) {
+      return !q || String(e.name).toLowerCase().indexOf(q) !== -1;
+    });
+    dropdown.innerHTML = '';
+    if (!matches.length) {
+      var empty = document.createElement('div');
+      empty.className = 'emp-option-empty';
+      empty.textContent = state.employeesLoaded ? 'Ничего не найдено' : 'Загрузка…';
+      dropdown.appendChild(empty);
+    } else {
+      matches.forEach(function (emp) {
+        var opt = document.createElement('div');
+        opt.className = 'emp-option';
+        opt.textContent = emp.name;
+        // mousedown (not click) fires before the input's blur, so the pick
+        // registers before the dropdown gets closed.
+        opt.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          selectEmployee(emp);
+          closeDropdown();
+        });
+        dropdown.appendChild(opt);
+      });
+    }
+  }
+
+  function openDropdown() {
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.className = 'emp-dropdown';
+      document.body.appendChild(dropdown);
+      repositionHandler = positionDropdown;
+      window.addEventListener('scroll', repositionHandler, true);
+      window.addEventListener('resize', repositionHandler);
+    }
+    renderOptions();
+    positionDropdown();
+  }
+
+  input.addEventListener('focus', function () { input.select(); openDropdown(); });
+  input.addEventListener('input', function () {
+    // Typing invalidates the previous pick until a new option is chosen —
+    // the underlying Grist column is Ref:Employees, not free text.
+    state.selEmployees[cfg.role] = null;
+    if (!dropdown) openDropdown();
+    else { renderOptions(); positionDropdown(); }
+  });
+  input.addEventListener('blur', function () {
+    closeDropdown();
+    // Snap back to the last valid selection's name if the typed text didn't
+    // resolve to a pick.
+    var id = state.selEmployees[cfg.role];
+    var emp = id != null ? state.employeesById[id] : null;
+    input.value = emp ? emp.name : '';
+  });
+
+  EMPLOYEE_PICKERS[cfg.role] = input;
+}
+
+EMPLOYEE_ROLE_FIELDS.forEach(setupEmployeePicker);
+
+function applyEmployeeSelection(role, employeeId) {
+  var input = EMPLOYEE_PICKERS[role];
+  var emp = employeeId != null ? state.employeesById[employeeId] : null;
+  state.selEmployees[role] = emp ? emp.id : null;
+  if (input) input.value = emp ? emp.name : '';
+}
+
+function applyPreset(preset) {
+  applyEmployeeSelection('developer', preset.developer);
+  applyEmployeeSelection('checker', preset.checker);
+  applyEmployeeSelection('normControl', preset.normControl);
+  applyEmployeeSelection('approver', preset.approver);
+}
+
+function clearEmployeeSelections() {
+  EMPLOYEE_ROLE_FIELDS.forEach(function (cfg) { applyEmployeeSelection(cfg.role, null); });
+}
+
+// ---------- Presets bar ----------
+
+var presetsBar = document.getElementById('presetsBar');
+
+function presetEmployeeLabel(id) {
+  var emp = id != null ? state.employeesById[id] : null;
+  return emp ? emp.name : '—';
+}
+
+function renderPresets() {
+  if (!presetsBar) return;
+  presetsBar.innerHTML = '';
+  state.presets.forEach(function (preset, idx) {
+    var chip = document.createElement('div');
+    chip.className = 'preset-chip';
+    var label = document.createElement('span');
+    label.textContent = preset.label || [
+      presetEmployeeLabel(preset.developer),
+      presetEmployeeLabel(preset.checker),
+      presetEmployeeLabel(preset.normControl),
+      presetEmployeeLabel(preset.approver)
+    ].join(' / ');
+    chip.title = 'Разраб.: ' + presetEmployeeLabel(preset.developer) +
+      '\nПров.: ' + presetEmployeeLabel(preset.checker) +
+      '\nНконтр.: ' + presetEmployeeLabel(preset.normControl) +
+      '\nУтв.: ' + presetEmployeeLabel(preset.approver);
+    chip.appendChild(label);
+    chip.addEventListener('click', function () { applyPreset(preset); });
+    var rmBtn = document.createElement('button');
+    rmBtn.type = 'button';
+    rmBtn.className = 'preset-chip-remove';
+    rmBtn.innerHTML = '&times;';
+    rmBtn.title = 'Удалить пресет';
+    rmBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      state.presets.splice(idx, 1);
+      grist.setOption('presets', state.presets);
+      renderPresets();
+    });
+    chip.appendChild(rmBtn);
+    presetsBar.appendChild(chip);
+  });
+
+  var addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'preset-add';
+  addBtn.textContent = '+ Сохранить как пресет';
+  addBtn.addEventListener('click', function () {
+    var d = state.selEmployees.developer, c = state.selEmployees.checker,
+        n = state.selEmployees.normControl, a = state.selEmployees.approver;
+    if (d == null && c == null && n == null && a == null) {
+      window.alert('Сначала выберите сотрудников в полях «Разработал/Проверил/Нормоконтроль/Утвердил».');
+      return;
+    }
+    var label = window.prompt('Название пресета:', [
+      presetEmployeeLabel(d), presetEmployeeLabel(c), presetEmployeeLabel(n), presetEmployeeLabel(a)
+    ].filter(function (x) { return x !== '—'; }).join(' / '));
+    if (label === null) return;
+    state.presets.push({ label: label.trim(), developer: d, checker: c, normControl: n, approver: a });
+    grist.setOption('presets', state.presets);
+    renderPresets();
+  });
+  presetsBar.appendChild(addBtn);
+}
 
 </script>
 </body>

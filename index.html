@@ -125,6 +125,8 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-num-toggle:hover .reg-chevron{color:var(--acc)}
 .reg-num-roles{font-family:var(--mono);font-size:10px;color:var(--tx3);margin-top:2px;white-space:nowrap}
 .reg-date-deadline{font-family:inherit;font-size:12px;color:var(--tx3);margin-top:2px;white-space:nowrap}
+.reg-exec-toggle{display:flex;align-items:center;gap:4px;margin-top:5px;font-size:11px;color:var(--tx);cursor:pointer;white-space:nowrap}
+.reg-exec-toggle input{margin:0;cursor:pointer}
 .reg-dn-edit{white-space:normal}
 .reg-edit-roles{margin-top:5px;display:flex;flex-direction:column;gap:3px;text-align:left}
 .reg-role-row{display:flex;align-items:center;gap:4px}
@@ -314,7 +316,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.33.5</footer>
+<footer class="ver-footer">v0.34.0</footer>
 
 <script>
 'use strict';
@@ -1249,7 +1251,8 @@ function registerNotificationForProduct(g, btn) {
     Checker: state.selEmployees.checker || 0,
     NormControl: state.selEmployees.normControl || 0,
     Approver: state.selEmployees.approver || 0,
-    ChangeDeadline: inputValueToDate(document.getElementById('fDeadline').value)
+    ChangeDeadline: inputValueToDate(document.getElementById('fDeadline').value),
+    IsExecuted: true
   };
   btn.disabled = true;
   grist.selectedTable.create({ fields: fields }).then(function (result) {
@@ -1535,6 +1538,16 @@ function editableRow(r) {
   var tdDate = document.createElement('td');
   tdDate.textContent = formatDate(r.IssueDate);
   appendDeadlineLine(tdDate, r);
+  var execRelease = !!r.IsExecuted;
+  var execLabel = document.createElement('label');
+  execLabel.className = 'reg-exec-toggle';
+  var execCb = document.createElement('input');
+  execCb.type = 'checkbox';
+  execCb.checked = execRelease;
+  execCb.addEventListener('change', function () { execRelease = execCb.checked; });
+  execLabel.appendChild(execCb);
+  execLabel.appendChild(document.createTextNode('исп.вып.'));
+  tdDate.appendChild(execLabel);
   frag.appendChild(tdDate);
 
   var tdProduct = document.createElement('td');
@@ -1742,6 +1755,7 @@ function editableRow(r) {
       Checker: typeof roleSel.checker === 'number' ? roleSel.checker : 0,
       NormControl: typeof roleSel.normControl === 'number' ? roleSel.normControl : 0,
       Approver: typeof roleSel.approver === 'number' ? roleSel.approver : 0,
+      IsExecuted: execRelease,
       DocumentDesignations: state.designationsColumnIsRef
         ? toRefListValue(currentDocs.map(function (d) { return d.invId; }).filter(function (id) { return id != null; }))
         : (currentDocs.length
@@ -1835,6 +1849,7 @@ function gatherNoticeData(r) {
     contentRows: rows,
     contentReason: r.ChangeReason || '',
     date: formatDate(r.IssueDate),
+    execRelease: !!r.IsExecuted,
     izm: rows.length === 1 ? (rows[0].izm || '—') : '—', // графа 17: один компонент — его изменение, несколько — прочерк
     dev: noticeEmployeeName(refs.Developer),
     check: noticeEmployeeName(refs.Checker),
@@ -1934,12 +1949,55 @@ function drawNoticeTable(page, font, geo, chunk, lines) {
 }
 
 async function buildNoticePdfBytes(data, assets) {
-  var PDFDocument = PDFLib.PDFDocument, PDFName = PDFLib.PDFName, PDFBool = PDFLib.PDFBool;
+  var PDFDocument = PDFLib.PDFDocument, PDFName = PDFLib.PDFName, PDFBool = PDFLib.PDFBool, rgb = PDFLib.rgb;
   var pdf = await PDFDocument.load(assets.form1);
   var tplA = await PDFDocument.load(assets.form1a);
   pdf.registerFontkit(fontkit);
   var font = await pdf.embedFont(assets.font, { subset: false });
   var form = pdf.getForm();
+
+  // pdf-lib центрирует однострочные AcroField по высоте шрифта БЕЗ descender'а
+  // (ascent-метрика), а не по видимой высоте глифов (capHeight) — в клетках,
+  // заметно выше кегля (например "применяемость"), это даёт видимое смещение
+  // текста наверх. Поэтому такие поля не отдаём автогенерации вида, а рисуем
+  // текст вручную с центрированием по capHeight шрифта.
+  var capRatio = 0.662;
+  try {
+    var fk = fontkit.create(assets.font);
+    if (fk && fk.capHeight && fk.unitsPerEm) capRatio = fk.capHeight / fk.unitsPerEm;
+  } catch (e) { /* используем запасной коэффициент */ }
+
+  function drawCentered(page, rect, text, fontSize, align) {
+    text = String(text == null ? '' : text);
+    if (!text) return;
+    var capH = fontSize * capRatio;
+    var y = rect.y + (rect.height - capH) / 2;
+    var tw = font.widthOfTextAtSize(text, fontSize);
+    var x = align === 1 ? rect.x + (rect.width - tw) / 2 : align === 2 ? rect.x + rect.width - tw - 3 : rect.x + 3;
+    page.drawText(text, { x: x, y: y, size: fontSize, font: font, color: rgb(0, 0, 0) });
+  }
+
+  // Снимает текстовое AcroField, отдавая его геометрию (rect, кегль из DA,
+  // выравнивание Q) для последующей ручной отрисовки тем же шрифтом.
+  function flattenField(field) {
+    var widget = field.acroField.getWidgets()[0];
+    var rect = widget.getRectangle();
+    var da = field.acroField.getDefaultAppearance() || '';
+    var m = /([\d.]+)\s+Tf/.exec(da);
+    var fontSize = Number((m && m[1]) || 0);
+    var qObj = field.acroField.dict.get(PDFName.of('Q'));
+    var align = qObj ? qObj.asNumber() : 0;
+    field.defaultUpdateAppearances(font);
+    form.removeField(field);
+    return { rect: rect, fontSize: fontSize, align: align };
+  }
+
+  function flattenAndDraw(page, name, text, fontSize, align) {
+    var field;
+    try { field = form.getTextField(name); } catch (e) { return; }
+    var geo = flattenField(field);
+    drawCentered(page, geo.rect, text, fontSize || geo.fontSize, align != null ? align : geo.align);
+  }
 
   var tplFields = tplA.getForm().getFields().map(function (f) {
     var w = f.acroField.getWidgets()[0];
@@ -1969,11 +2027,13 @@ async function buildNoticePdfBytes(data, assets) {
   }
 
   var total = chunks.length;
+  var contPages = [];
   for (var s = 2; s <= total; s++) {
     var copied = await pdf.copyPages(tplA, [0]);
     var page = copied[0];
     page.node.delete(PDFName.of('Annots'));
     pdf.addPage(page);
+    contPages.push(page);
     drawNoticeTable(page, font, geo2, chunks[s - 1].rows, chunks[s - 1].lines);
     tplFields.forEach(function (t) {
       if (t.name === 'content') return;
@@ -1987,7 +2047,9 @@ async function buildNoticePdfBytes(data, assets) {
 
   // В шаблоне DA-размеры шапки разнобойные (часть полей "0 Tf" = автоподгонка,
   // часть фиксированные 9/10 pt) — из-за этого "ЛМП" и дата выглядят разного
-  // размера. Принудительно задаём один размер всем полям шапки.
+  // размера. Принудительно задаём один размер всем полям шапки. org/product —
+  // многострочные, их не трогает баг центрирования, оставляем на автогенерации
+  // pdf-lib; остальные поля шапки и штампа заполняем вручную (flattenAndDraw).
   var HEADER_SIZE = 9;
   function set(name, value, fontSize) {
     if (value == null || value === '') return;
@@ -1998,19 +2060,78 @@ async function buildNoticePdfBytes(data, assets) {
     } catch (e) { /* поле отсутствует в этом бланке — пропускаем */ }
   }
 
-  set('org', data.org, HEADER_SIZE); set('notice', data.number, HEADER_SIZE);
-  set('designation', data.designation, HEADER_SIZE); set('product', data.product, HEADER_SIZE);
-  set('issueDate', data.date, HEADER_SIZE); set('changeDeadline', data.changeDeadline, HEADER_SIZE);
-  set('applicability', data.applicability);
-  set('sheet', 1, HEADER_SIZE); set('sheets', total, HEADER_SIZE); set('changeNo', data.izm);
-  set('dev_name', data.dev); set('dev_date', data.dev ? data.date : '');
-  set('check_name', data.check); set('check_date', data.check ? data.date : '');
-  set('normControl_name', data.normControl); set('normControl_date', data.normControl ? data.date : '');
-  set('approve_name', data.approve); set('approve_date', data.approve ? data.date : '');
+  var page1 = pdf.getPages()[0];
+  set('org', data.org, HEADER_SIZE);
+  set('product', data.product, HEADER_SIZE);
+  flattenAndDraw(page1, 'notice', data.number, HEADER_SIZE);
+  flattenAndDraw(page1, 'designation', data.designation, HEADER_SIZE);
+  flattenAndDraw(page1, 'sheet', 1, HEADER_SIZE);
+  flattenAndDraw(page1, 'sheets', total, HEADER_SIZE);
+  flattenAndDraw(page1, 'changeNo', data.izm);
+  flattenAndDraw(page1, 'applicability', data.applicability);
+  flattenAndDraw(page1, 'dev_name', data.dev);
+  flattenAndDraw(page1, 'dev_date', (data.dev && data.execRelease) ? data.date : '');
+  flattenAndDraw(page1, 'check_name', data.check);
+  flattenAndDraw(page1, 'check_date', (data.check && data.execRelease) ? data.date : '');
+  flattenAndDraw(page1, 'normControl_name', data.normControl);
+  flattenAndDraw(page1, 'normControl_date', (data.normControl && data.execRelease) ? data.date : '');
+  flattenAndDraw(page1, 'approve_name', data.approve);
+  flattenAndDraw(page1, 'approve_date', (data.approve && data.execRelease) ? data.date : '');
   for (var s2 = 2; s2 <= total; s2++) {
-    set('L' + s2 + '_notice', data.number); set('L' + s2 + '_sheet', s2); set('L' + s2 + '_product', data.product);
-    set('L' + s2 + '_changeNo', data.izm);
+    var cp = contPages[s2 - 2];
+    flattenAndDraw(cp, 'L' + s2 + '_notice', data.number);
+    flattenAndDraw(cp, 'L' + s2 + '_sheet', s2);
+    flattenAndDraw(cp, 'L' + s2 + '_changeNo', data.izm);
+    set('L' + s2 + '_product', data.product);
   }
+
+  // Графа "Дата выпуска"/"Срок изм." (только на листе 1 — на листах-продолжениях
+  // этой строки нет вовсе): убираем оба AcroField и перерисовываем область вручную
+  // — общий заголовок "Выпуск/срок" на всю ширину бывших двух колонок, под ним
+  // слева дата выпуска-срок изменения одной строкой через дефис, справа чекбокс
+  // "исп.вып.", управляющий заполнением дат в нижнем штампе (data.execRelease).
+  (function drawIssueHeader() {
+    var issueField, deadlineField;
+    try { issueField = form.getTextField('issueDate'); } catch (e) {}
+    try { deadlineField = form.getTextField('changeDeadline'); } catch (e) {}
+    if (!issueField || !deadlineField) return;
+    var rectDate = issueField.acroField.getWidgets()[0].getRectangle();
+    var rectBox = deadlineField.acroField.getWidgets()[0].getRectangle();
+    issueField.defaultUpdateAppearances(font); form.removeField(issueField);
+    deadlineField.defaultUpdateAppearances(font); form.removeField(deadlineField);
+
+    var left = rectDate.x, right = rectBox.x + rectBox.width;
+    var labelBottom = rectDate.y + rectDate.height;
+    var orgRect = form.getTextField('org').acroField.getWidgets()[0].getRectangle();
+    var labelTop = orgRect.y; // граница строк 1/2 шапки = верх строки с датой выпуска
+
+    // Закрашиваем прежние бланковые подписи "Дата выпуска"/"Срок изм." белым.
+    page1.drawRectangle({ x: left - 0.5, y: labelBottom - 0.3, width: (right - left) + 1, height: (labelTop - labelBottom) + 1, color: rgb(1, 1, 1), borderWidth: 0 });
+
+    var headerText = 'Выпуск/срок', hs = 8.5;
+    var htw = font.widthOfTextAtSize(headerText, hs);
+    page1.drawText(headerText, { x: left + (right - left - htw) / 2, y: labelBottom + (labelTop - labelBottom - hs * capRatio) / 2, size: hs, font: font, color: rgb(0, 0, 0) });
+
+    var dateText = data.date || '';
+    if (data.changeDeadline) dateText = dateText ? (dateText + '-' + data.changeDeadline) : data.changeDeadline;
+    if (dateText) {
+      var maxW = rectDate.width - 6, size = 8;
+      while (size > 5.5 && font.widthOfTextAtSize(dateText, size) > maxW) size -= 0.25;
+      drawCentered(page1, rectDate, dateText, size, 1);
+    }
+
+    var boxSize = 7, cbLabel = 'исп.вып.', lsz = 7;
+    var lw = font.widthOfTextAtSize(cbLabel, lsz);
+    var groupW = boxSize + 3 + lw;
+    var gx = rectBox.x + (rectBox.width - groupW) / 2;
+    var gy = rectBox.y + (rectBox.height - boxSize) / 2;
+    page1.drawRectangle({ x: gx, y: gy, width: boxSize, height: boxSize, borderWidth: 0.75, borderColor: rgb(0, 0, 0) });
+    if (data.execRelease) {
+      page1.drawLine({ start: { x: gx + boxSize * 0.18, y: gy + boxSize * 0.5 }, end: { x: gx + boxSize * 0.42, y: gy + boxSize * 0.18 }, thickness: 1, color: rgb(0, 0, 0) });
+      page1.drawLine({ start: { x: gx + boxSize * 0.42, y: gy + boxSize * 0.18 }, end: { x: gx + boxSize * 0.82, y: gy + boxSize * 0.82 }, thickness: 1, color: rgb(0, 0, 0) });
+    }
+    page1.drawText(cbLabel, { x: gx + boxSize + 3, y: gy + (boxSize - lsz * capRatio) / 2, size: lsz, font: font, color: rgb(0, 0, 0) });
+  })();
 
   // form.removeField() ищет /AP /N у виджета (PDFForm.findWidgetAppearanceRef) и
   // падает "Unexpected N type: undefined", если его ещё не было — поэтому сначала

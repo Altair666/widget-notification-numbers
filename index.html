@@ -103,12 +103,14 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 
 #regBody{overflow-x:auto}
 .reg-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+/* ВРЕМЕННО — границы столбцов реестра для проверки ширины, убрать после проверки */
+.reg-table,.reg-table th,.reg-table td{outline:1px solid red}
 .reg-table th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);padding:5px 8px;border-bottom:2px solid var(--brd);text-align:center;background:var(--surf2);white-space:nowrap}
 .reg-table td{padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:top;text-align:center}
 .reg-table tr:last-child td{border-bottom:none}
 .reg-table tr:hover td{background:var(--surf2)}
 .reg-dn{font-family:var(--mono);font-size:11px;color:var(--acc);white-space:nowrap}
-.reg-date{}
+.reg-date{white-space:nowrap}
 .reg-docs{text-align:center!important;white-space:pre-wrap;font-family:var(--mono);font-size:11px;max-width:220px;word-break:break-word;overflow-wrap:anywhere}
 .reg-reason{text-align:left!important;white-space:pre-wrap;max-width:360px;word-break:break-word;overflow-wrap:anywhere}
 .reg-product{word-break:break-word;overflow-wrap:anywhere}
@@ -317,7 +319,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.35.0</footer>
+<footer class="ver-footer">v0.35.1</footer>
 
 <script>
 'use strict';
@@ -1339,7 +1341,7 @@ function renderRegistry() {
   var table = document.createElement('table');
   table.className = 'reg-table';
   table.innerHTML =
-    '<colgroup><col style="width:2%"><col style="width:13%"><col style="width:9%"><col style="width:17%">' +
+    '<colgroup><col style="width:2%"><col style="width:13%"><col style="width:150px"><col style="width:17%">' +
     '<col style="width:17%"><col style="width:38%"><col style="width:4%"></colgroup>' +
     '<thead><tr>' +
     '<th class="reg-dl-head" title="Скачать извещение">' + downloadSvg() + '</th>' +

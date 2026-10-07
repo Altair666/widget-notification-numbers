@@ -126,7 +126,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-chevron.on{transform:rotate(90deg)}
 .reg-num-toggle:hover .reg-chevron{color:var(--acc)}
 .reg-num-roles{font-family:var(--mono);font-size:10px;color:var(--tx3);margin-top:2px;white-space:nowrap}
-.reg-exec-toggle{display:flex;align-items:center;gap:4px;margin-top:3px;font-size:11px;color:var(--tx3);white-space:nowrap}
+.reg-exec-toggle{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:3px;font-size:11px;color:var(--tx3);white-space:nowrap}
 .reg-exec-toggle input{margin:0}
 .reg-exec-toggle input:not(:disabled){cursor:pointer}
 .reg-exec-toggle input:not(:disabled) ~ span,.reg-exec-toggle:has(input:not(:disabled)){color:var(--tx)}
@@ -319,7 +319,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.35.1</footer>
+<footer class="ver-footer">v0.35.2</footer>
 
 <script>
 'use strict';
@@ -1341,7 +1341,7 @@ function renderRegistry() {
   var table = document.createElement('table');
   table.className = 'reg-table';
   table.innerHTML =
-    '<colgroup><col style="width:2%"><col style="width:13%"><col style="width:150px"><col style="width:17%">' +
+    '<colgroup><col style="width:2%"><col style="width:120px"><col style="width:150px"><col style="width:17%">' +
     '<col style="width:17%"><col style="width:38%"><col style="width:4%"></colgroup>' +
     '<thead><tr>' +
     '<th class="reg-dl-head" title="Скачать извещение">' + downloadSvg() + '</th>' +

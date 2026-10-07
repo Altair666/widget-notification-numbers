@@ -319,7 +319,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.35.5</footer>
+<footer class="ver-footer">v0.36.0</footer>
 
 <script>
 'use strict';
@@ -1853,6 +1853,7 @@ function gatherNoticeData(r) {
     contentRows: rows,
     contentReason: r.ChangeReason || '',
     date: formatDate(r.IssueDate),
+    execRelease: !!refs.IsExecuted,
     izm: rows.length === 1 ? (rows[0].izm || '—') : '—', // графа 17: один компонент — его изменение, несколько — прочерк
     dev: noticeEmployeeName(refs.Developer),
     check: noticeEmployeeName(refs.Checker),
@@ -1959,6 +1960,29 @@ async function buildNoticePdfBytes(data, assets) {
   var font = await pdf.embedFont(assets.font, { subset: false });
   var form = pdf.getForm();
 
+  // Поля "Причина"/"Задел"/"Внедрение"/"Применяемость"/"Разослать" — рамка
+  // (Rect) заметно выше кегля шрифта (22.39pt при 8-9pt шрифте), а многострочные
+  // текстовые поля PDF всегда прижимают текст к верхнему краю рамки (так рисуют
+  // все вьюеры при вводе текста, в т.ч. уже вписанное нами значение
+  // "применяемость") — визуально текст выглядит смещённым наверх. Сжимаем
+  // рамку каждого поля до высоты одной строки и центрируем её внутри исходной
+  // ячейки — тогда и вписанный нами текст, и текст, который впишет пользователь
+  // вручную позже, оказывается по центру напечатанной ячейки.
+  function centerFieldVertically(name) {
+    try {
+      var f = form.getTextField(name);
+      var widget = f.acroField.getWidgets()[0];
+      var rect = widget.getRectangle();
+      var da = f.acroField.getDefaultAppearance() || '';
+      var m = /([\d.]+)\s+Tf/.exec(da);
+      var size = Number((m && m[1]) || 0) || 9;
+      var lineH = size + 5;
+      if (lineH >= rect.height) return;
+      widget.setRectangle({ x: rect.x, y: rect.y + (rect.height - lineH) / 2, width: rect.width, height: lineH });
+    } catch (e) { /* поле отсутствует в этом бланке — пропускаем */ }
+  }
+  ['reason', 'backlog', 'implementation', 'applicability', 'distribution'].forEach(centerFieldVertically);
+
   var tplFields = tplA.getForm().getFields().map(function (f) {
     var w = f.acroField.getWidgets()[0];
     var da = f.acroField.getDefaultAppearance() || '';
@@ -2021,10 +2045,10 @@ async function buildNoticePdfBytes(data, assets) {
   set('issueDate', data.date, HEADER_SIZE); set('changeDeadline', data.changeDeadline, HEADER_SIZE);
   set('applicability', data.applicability);
   set('sheet', 1, HEADER_SIZE); set('sheets', total, HEADER_SIZE); set('changeNo', data.izm);
-  set('dev_name', data.dev); set('dev_date', data.dev ? data.date : '');
-  set('check_name', data.check); set('check_date', data.check ? data.date : '');
-  set('normControl_name', data.normControl); set('normControl_date', data.normControl ? data.date : '');
-  set('approve_name', data.approve); set('approve_date', data.approve ? data.date : '');
+  set('dev_name', data.dev); set('dev_date', (data.dev && data.execRelease) ? data.date : '');
+  set('check_name', data.check); set('check_date', (data.check && data.execRelease) ? data.date : '');
+  set('normControl_name', data.normControl); set('normControl_date', (data.normControl && data.execRelease) ? data.date : '');
+  set('approve_name', data.approve); set('approve_date', (data.approve && data.execRelease) ? data.date : '');
   for (var s2 = 2; s2 <= total; s2++) {
     set('L' + s2 + '_notice', data.number); set('L' + s2 + '_sheet', s2); set('L' + s2 + '_product', data.product);
     set('L' + s2 + '_changeNo', data.izm);

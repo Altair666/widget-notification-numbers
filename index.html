@@ -319,7 +319,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.36.1</footer>
+<footer class="ver-footer">v0.36.2</footer>
 
 <script>
 'use strict';
@@ -1863,6 +1863,7 @@ function gatherNoticeData(r) {
   var rows = noticeContentRows(r);
   var comp = state.componentsById[r.Product];
   var mainComp = rootProductFor(comp);
+  console.log('[notice-debug] r.Product=', r.Product, typeof r.Product, 'comp=', comp, 'mainComp=', mainComp);
   return {
     org: 'ООО «ЛМП»',
     number: r.Number || '',

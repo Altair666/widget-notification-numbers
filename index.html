@@ -319,7 +319,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.36.0</footer>
+<footer class="ver-footer">v0.36.1</footer>
 
 <script>
 'use strict';
@@ -569,6 +569,22 @@ function loadEmployees() {
     }).catch(function () { tryNext(i + 1); });
   }
   tryNext(0);
+}
+
+// Основное изделие — верхний узел цепочки primary_use (куда компонент/документ
+// входит как часть), а не сам r.Product (это может быть промежуточная сборка
+// или документ). primary_use грузится в componentsById, но раньше нигде не
+// использовался для этой цепочки — отсюда и разрыв "применяемость не привязана
+// к децимальному номеру основного изделия", замеченный пользователем 2026-10-07.
+function rootProductFor(comp) {
+  var seen = {};
+  while (comp && comp.primary_use && !seen[comp.id]) {
+    seen[comp.id] = true;
+    var parent = state.componentsById[comp.primary_use];
+    if (!parent) break;
+    comp = parent;
+  }
+  return comp;
 }
 
 function orgPrefixFor(comp) {
@@ -1836,19 +1852,23 @@ function noticeEmployeeName(id) {
   return emp ? emp.name : '';
 }
 
-// Графа "Применяемость" — децимальный номер изделия, на которое оформлено
-// извещение (r.Product), если он есть; для изделий без децимального номера
-// (закупные/QI) оставляем пустой — так решил пользователь 2026-10-06.
+// Графа "Применяемость" — децимальный номер ОСНОВНОГО изделия (верхний узел
+// цепочки primary_use от r.Product, см. rootProductFor), а не самого r.Product
+// (который может быть промежуточной сборкой/документом); для изделий без
+// децимального номера (закупные/QI) оставляем пустой — так решил пользователь
+// 2026-10-06. Графа "Изделие" в шапке показывает то же основное изделие —
+// уточнение пользователя 2026-10-07.
 function gatherNoticeData(r) {
   var refs = state.roleRefsById[r.id] || {};
   var rows = noticeContentRows(r);
   var comp = state.componentsById[r.Product];
+  var mainComp = rootProductFor(comp);
   return {
     org: 'ООО «ЛМП»',
     number: r.Number || '',
     designation: rows.length === 1 ? (rows[0].obozn || '') : 'см. ниже',
-    product: productLabelForRecord(r),
-    applicability: comp ? (comp.decimal_number || '') : '',
+    product: mainComp ? mainComp.name : productLabelForRecord(r),
+    applicability: mainComp ? (mainComp.decimal_number || '') : '',
     changeDeadline: formatDate(refs.ChangeDeadline),
     contentRows: rows,
     contentReason: r.ChangeReason || '',
@@ -1960,28 +1980,21 @@ async function buildNoticePdfBytes(data, assets) {
   var font = await pdf.embedFont(assets.font, { subset: false });
   var form = pdf.getForm();
 
-  // Поля "Причина"/"Задел"/"Внедрение"/"Применяемость"/"Разослать" — рамка
-  // (Rect) заметно выше кегля шрифта (22.39pt при 8-9pt шрифте), а многострочные
-  // текстовые поля PDF всегда прижимают текст к верхнему краю рамки (так рисуют
-  // все вьюеры при вводе текста, в т.ч. уже вписанное нами значение
-  // "применяемость") — визуально текст выглядит смещённым наверх. Сжимаем
-  // рамку каждого поля до высоты одной строки и центрируем её внутри исходной
-  // ячейки — тогда и вписанный нами текст, и текст, который впишет пользователь
-  // вручную позже, оказывается по центру напечатанной ячейки.
-  function centerFieldVertically(name) {
-    try {
-      var f = form.getTextField(name);
-      var widget = f.acroField.getWidgets()[0];
-      var rect = widget.getRectangle();
-      var da = f.acroField.getDefaultAppearance() || '';
-      var m = /([\d.]+)\s+Tf/.exec(da);
-      var size = Number((m && m[1]) || 0) || 9;
-      var lineH = size + 5;
-      if (lineH >= rect.height) return;
-      widget.setRectangle({ x: rect.x, y: rect.y + (rect.height - lineH) / 2, width: rect.width, height: lineH });
-    } catch (e) { /* поле отсутствует в этом бланке — пропускаем */ }
-  }
-  ['reason', 'backlog', 'implementation', 'applicability', 'distribution'].forEach(centerFieldVertically);
+  // Поля "Причина"/"Задел"/"Внедрение"/"Применяемость"/"Разослать" были заведены
+  // в бланке как многострочные (Ff Multiline) — у многострочных текстовых полей
+  // pdf-lib (и любой PDF-вьюер) всегда прижимает текст к верхнему краю рамки
+  // (см. layoutMultilineText в pdf-lib: y начинается от bounds.y+bounds.height
+  // и далее уменьшается), а у однострочных, наоборот, центрирует по высоте
+  // (layoutSinglelineText: y = bounds.y + (height/2 - textHeight/2)) — отсюда
+  // и смещение наверх. Первая попытка чинить это уменьшением рамки (Rect) сама
+  // стала багом: при малой высоте многострочного поля viewer включает скролл
+  // внутри поля и рисует стрелки вверх/вниз (поля не имели флага DoNotScroll).
+  // Правильное решение — не трогать Rect вообще, а снять флаг Multiline: тогда
+  // и pdf-lib при финальной генерации вида (updateFieldAppearances ниже), и сам
+  // вьюер центрируют текст в полную исходную рамку без скролл-артефактов.
+  ['reason', 'backlog', 'implementation', 'applicability', 'distribution'].forEach(function (name) {
+    try { form.getTextField(name).disableMultiline(); } catch (e) { /* поле отсутствует в этом бланке — пропускаем */ }
+  });
 
   var tplFields = tplA.getForm().getFields().map(function (f) {
     var w = f.acroField.getWidgets()[0];

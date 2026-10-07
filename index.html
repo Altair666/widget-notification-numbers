@@ -319,7 +319,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.36.2</footer>
+<footer class="ver-footer">v0.36.3</footer>
 
 <script>
 'use strict';
@@ -462,6 +462,13 @@ function showError(err) {
 // NormControl/Approver now do, so the native Grist table shows readable names) —
 // it never sends the raw numeric rowId for such columns. The only reliable way to
 // get the real rowId back is grist.docApi.fetchTable() on the whole table.
+// Product is affected the same way — its displayCol shows decimal_number, so
+// r.Product from onRecords() arrives as a decimal-number STRING (e.g.
+// "ЛМАП.402131.009"), not the row id — confirmed 2026-10-07 via console.log,
+// which is why state.componentsById[r.Product] always missed and "Применяемость"
+// stayed empty. The registry's own "Изделие" column was never affected by this
+// because productLabelForRecord() prefers the plain-text r.ProductName column
+// over any componentsById lookup — only gatherNoticeData() needs the real id.
 // ChangeDeadline isn't a Ref column so it isn't affected by that substitution,
 // but onRecords() still never delivered it (confirmed via the doc's own REST API:
 // the column exists with real Date values, yet r.ChangeDeadline is always absent
@@ -480,6 +487,7 @@ function refreshRoleRefsFromServer() {
         Checker: typeof (table.Checker && table.Checker[i]) === 'number' ? table.Checker[i] : 0,
         NormControl: typeof (table.NormControl && table.NormControl[i]) === 'number' ? table.NormControl[i] : 0,
         Approver: typeof (table.Approver && table.Approver[i]) === 'number' ? table.Approver[i] : 0,
+        Product: typeof (table.Product && table.Product[i]) === 'number' ? table.Product[i] : 0,
         ChangeDeadline: (table.ChangeDeadline && table.ChangeDeadline[i]) || null,
         IsExecuted: !!(table.IsExecuted && table.IsExecuted[i])
       };
@@ -1861,9 +1869,8 @@ function noticeEmployeeName(id) {
 function gatherNoticeData(r) {
   var refs = state.roleRefsById[r.id] || {};
   var rows = noticeContentRows(r);
-  var comp = state.componentsById[r.Product];
+  var comp = state.componentsById[refs.Product || r.Product];
   var mainComp = rootProductFor(comp);
-  console.log('[notice-debug] r.Product=', r.Product, typeof r.Product, 'comp=', comp, 'mainComp=', mainComp);
   return {
     org: 'ООО «ЛМП»',
     number: r.Number || '',

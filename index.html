@@ -35,6 +35,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 
 .panel{background:var(--surf);border:1px solid var(--brd);border-radius:0;flex-shrink:0}
 .panel+.panel{border-top:none}
+.panel-registry{flex:1;min-height:0;display:flex;flex-direction:column}
 .ph{display:flex;align-items:center;justify-content:space-between;height:32px;padding:0 12px;border-bottom:1px solid var(--brd);background:var(--surf2)}
 .ph.reg-ph{position:sticky;top:0;z-index:5;justify-content:flex-start}
 .ph-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2)}
@@ -101,10 +102,11 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .prod-item-hidden{opacity:.55}
 .prod-body{border-top:1px solid var(--brd);background:var(--surf);padding:0}
 
-#regBody{max-height:60vh;overflow:auto}
-.reg-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+#regBody{flex:1;min-height:0;overflow:auto;scroll-snap-type:y mandatory}
+.reg-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fixed}
 .reg-table th{position:sticky;top:0;z-index:1;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);padding:5px 8px;border-bottom:2px solid var(--brd);text-align:center;background:var(--surf2);white-space:nowrap}
 .reg-table td{padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:top;text-align:center}
+.reg-table tbody tr{scroll-snap-align:start}
 .reg-table tr:last-child td{border-bottom:none}
 .reg-table tr:hover td{background:var(--surf2)}
 .reg-dn{font-family:var(--mono);font-size:11px;color:var(--acc);white-space:nowrap}
@@ -289,7 +291,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   </div>
 
   <!-- REGISTRY -->
-  <div class="panel">
+  <div class="panel panel-registry">
     <div class="ph reg-ph">
       <span class="ph-title">Реестр извещений</span>
       <div class="reg-year-wrap" id="regYearWrap">
@@ -319,7 +321,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.36.4</footer>
+<footer class="ver-footer">v0.36.5</footer>
 
 <script>
 'use strict';

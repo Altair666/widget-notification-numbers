@@ -124,7 +124,10 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-chevron.on{transform:rotate(90deg)}
 .reg-num-toggle:hover .reg-chevron{color:var(--acc)}
 .reg-num-roles{font-family:var(--mono);font-size:10px;color:var(--tx3);margin-top:2px;white-space:nowrap}
-.reg-date-deadline{font-family:inherit;font-size:12px;color:var(--tx3);margin-top:2px;white-space:nowrap}
+.reg-exec-toggle{display:flex;align-items:center;gap:4px;margin-top:3px;font-size:11px;color:var(--tx3);white-space:nowrap}
+.reg-exec-toggle input{margin:0}
+.reg-exec-toggle input:not(:disabled){cursor:pointer}
+.reg-exec-toggle input:not(:disabled) ~ span,.reg-exec-toggle:has(input:not(:disabled)){color:var(--tx)}
 .reg-dn-edit{white-space:normal}
 .reg-edit-roles{margin-top:5px;display:flex;flex-direction:column;gap:3px;text-align:left}
 .reg-role-row{display:flex;align-items:center;gap:4px}
@@ -314,7 +317,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.33.5</footer>
+<footer class="ver-footer">v0.35.0</footer>
 
 <script>
 'use strict';
@@ -475,7 +478,8 @@ function refreshRoleRefsFromServer() {
         Checker: typeof (table.Checker && table.Checker[i]) === 'number' ? table.Checker[i] : 0,
         NormControl: typeof (table.NormControl && table.NormControl[i]) === 'number' ? table.NormControl[i] : 0,
         Approver: typeof (table.Approver && table.Approver[i]) === 'number' ? table.Approver[i] : 0,
-        ChangeDeadline: (table.ChangeDeadline && table.ChangeDeadline[i]) || null
+        ChangeDeadline: (table.ChangeDeadline && table.ChangeDeadline[i]) || null,
+        IsExecuted: !!(table.IsExecuted && table.IsExecuted[i])
       };
     });
     state.roleRefsById = map;
@@ -1249,7 +1253,8 @@ function registerNotificationForProduct(g, btn) {
     Checker: state.selEmployees.checker || 0,
     NormControl: state.selEmployees.normControl || 0,
     Approver: state.selEmployees.approver || 0,
-    ChangeDeadline: inputValueToDate(document.getElementById('fDeadline').value)
+    ChangeDeadline: inputValueToDate(document.getElementById('fDeadline').value),
+    IsExecuted: true
   };
   btn.disabled = true;
   grist.selectedTable.create({ fields: fields }).then(function (result) {
@@ -1338,7 +1343,7 @@ function renderRegistry() {
     '<col style="width:17%"><col style="width:38%"><col style="width:4%"></colgroup>' +
     '<thead><tr>' +
     '<th class="reg-dl-head" title="Скачать извещение">' + downloadSvg() + '</th>' +
-    '<th>№ извещения</th><th>Дата выпуска</th><th>Изделие</th><th>Обозначение</th>' +
+    '<th>№ извещения</th><th>Выпуск/срок</th><th>Изделие</th><th>Обозначение</th>' +
     '<th>Причина изменения</th><th></th>' +
     '</tr></thead><tbody></tbody>';
   var tbody = table.querySelector('tbody');
@@ -1415,8 +1420,8 @@ function renderRegistry() {
 
       var tdDate = document.createElement('td');
       tdDate.className = 'reg-date';
-      tdDate.textContent = formatDate(r.IssueDate);
-      appendDeadlineLine(tdDate, r);
+      tdDate.textContent = formatIssueDeadline(r);
+      appendExecLine(tdDate, r, false);
       tr.appendChild(tdDate);
 
       var tdProduct = document.createElement('td');
@@ -1456,8 +1461,8 @@ function renderRegistry() {
         tr.appendChild(buildNumCell(rowSpan));
 
         var tdDate = document.createElement('td');
-        tdDate.className = 'reg-date'; tdDate.rowSpan = rowSpan; tdDate.textContent = formatDate(r.IssueDate);
-        appendDeadlineLine(tdDate, r);
+        tdDate.className = 'reg-date'; tdDate.rowSpan = rowSpan; tdDate.textContent = formatIssueDeadline(r);
+        appendExecLine(tdDate, r, false);
         tr.appendChild(tdDate);
 
         var tdProduct = document.createElement('td');
@@ -1532,9 +1537,10 @@ function editableRow(r) {
   tdNum.appendChild(rolesWrap);
   frag.appendChild(tdNum);
 
+  var execVal = !!roleRefs.IsExecuted;
   var tdDate = document.createElement('td');
-  tdDate.textContent = formatDate(r.IssueDate);
-  appendDeadlineLine(tdDate, r);
+  tdDate.textContent = formatIssueDeadline(r);
+  appendExecLine(tdDate, r, true, function (checked) { execVal = checked; });
   frag.appendChild(tdDate);
 
   var tdProduct = document.createElement('td');
@@ -1742,6 +1748,7 @@ function editableRow(r) {
       Checker: typeof roleSel.checker === 'number' ? roleSel.checker : 0,
       NormControl: typeof roleSel.normControl === 'number' ? roleSel.normControl : 0,
       Approver: typeof roleSel.approver === 'number' ? roleSel.approver : 0,
+      IsExecuted: execVal,
       DocumentDesignations: state.designationsColumnIsRef
         ? toRefListValue(currentDocs.map(function (d) { return d.invId; }).filter(function (id) { return id != null; }))
         : (currentDocs.length
@@ -2133,13 +2140,28 @@ function employeeAbbrev(id) {
   return String(emp.name).trim().slice(0, 3);
 }
 
-function appendDeadlineLine(td, r) {
+function formatIssueDeadline(r) {
+  var dateTxt = formatDate(r.IssueDate);
   var refs = state.roleRefsById[r.id] || {};
-  var txt = formatDate(refs.ChangeDeadline);
-  if (!txt) return;
-  var line = document.createElement('div');
-  line.className = 'reg-date-deadline';
-  line.textContent = txt;
+  var deadlineTxt = formatDate(refs.ChangeDeadline);
+  if (!dateTxt) return deadlineTxt || '';
+  return deadlineTxt ? (dateTxt + '-' + deadlineTxt) : dateTxt;
+}
+
+function appendExecLine(td, r, editable, onChange) {
+  var refs = state.roleRefsById[r.id] || {};
+  var line = document.createElement('label');
+  line.className = 'reg-exec-toggle';
+  var cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = !!refs.IsExecuted;
+  if (editable) {
+    cb.addEventListener('change', function () { if (onChange) onChange(cb.checked); });
+  } else {
+    cb.disabled = true;
+  }
+  line.appendChild(cb);
+  line.appendChild(document.createTextNode('исп.вып.'));
   td.appendChild(line);
 }
 

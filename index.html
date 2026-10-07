@@ -101,9 +101,9 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .prod-item-hidden{opacity:.55}
 .prod-body{border-top:1px solid var(--brd);background:var(--surf);padding:0}
 
-#regBody{overflow-x:auto}
+#regBody{max-height:60vh;overflow:auto}
 .reg-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
-.reg-table th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);padding:5px 8px;border-bottom:2px solid var(--brd);text-align:center;background:var(--surf2);white-space:nowrap}
+.reg-table th{position:sticky;top:0;z-index:1;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);padding:5px 8px;border-bottom:2px solid var(--brd);text-align:center;background:var(--surf2);white-space:nowrap}
 .reg-table td{padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:top;text-align:center}
 .reg-table tr:last-child td{border-bottom:none}
 .reg-table tr:hover td{background:var(--surf2)}
@@ -319,7 +319,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.36.3</footer>
+<footer class="ver-footer">v0.36.4</footer>
 
 <script>
 'use strict';
@@ -2217,7 +2217,7 @@ function appendExecLine(td, r, editable, onChange) {
     cb.disabled = true;
   }
   line.appendChild(cb);
-  line.appendChild(document.createTextNode('исп.вып.'));
+  line.appendChild(document.createTextNode('исп. дату вып.'));
   td.appendChild(line);
 }
 

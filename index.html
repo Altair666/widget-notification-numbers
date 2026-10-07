@@ -159,6 +159,8 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
 .reg-filter-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none}
 
 .reg-actions{white-space:nowrap}
+.reg-actions-wrap{display:flex;align-items:center;justify-content:center;width:100%}
+.reg-actions-stack{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%}
 .reg-dl,.reg-dl-head{white-space:nowrap;text-align:center!important;padding-left:0!important;padding-right:0!important;width:28px!important;max-width:28px!important;box-sizing:border-box!important}
 .reg-dl-head{color:var(--red-br)}
 .reg-dl-head svg{display:block;margin:0 auto}
@@ -319,7 +321,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.35.3</footer>
+<footer class="ver-footer">v0.35.4</footer>
 
 <script>
 'use strict';
@@ -1446,7 +1448,10 @@ function renderRegistry() {
       tdActions.className = 'reg-actions';
       var editBtn = iconButton('cell-edit-btn', pencilSvg(), 'Редактировать');
       editBtn.addEventListener('click', function () { editingId = r.id; renderRegistry(); });
-      tdActions.appendChild(editBtn);
+      var editWrap = document.createElement('div');
+      editWrap.className = 'reg-actions-wrap';
+      editWrap.appendChild(editBtn);
+      tdActions.appendChild(editWrap);
       tr.appendChild(tdActions);
 
       tbody.appendChild(tr);
@@ -1485,7 +1490,10 @@ function renderRegistry() {
         tdActions.className = 'reg-actions'; tdActions.rowSpan = rowSpan;
         var editBtn = iconButton('cell-edit-btn', pencilSvg(), 'Редактировать');
         editBtn.addEventListener('click', function () { editingId = r.id; renderRegistry(); });
-        tdActions.appendChild(editBtn);
+        var editWrap = document.createElement('div');
+        editWrap.className = 'reg-actions-wrap';
+        editWrap.appendChild(editBtn);
+        tdActions.appendChild(editWrap);
         tr.appendChild(tdActions);
       }
 
@@ -1766,8 +1774,11 @@ function editableRow(r) {
   });
   var cancelBtn = iconButton('cell-edit-btn cancel', xSvg(), 'Отмена');
   cancelBtn.addEventListener('click', function () { editingId = null; renderRegistry(); });
-  tdActions.appendChild(saveBtn);
-  tdActions.appendChild(cancelBtn);
+  var actionsStack = document.createElement('div');
+  actionsStack.className = 'reg-actions-stack';
+  actionsStack.appendChild(saveBtn);
+  actionsStack.appendChild(cancelBtn);
+  tdActions.appendChild(actionsStack);
   frag.appendChild(tdActions);
 
   return frag;

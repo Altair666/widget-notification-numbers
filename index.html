@@ -326,7 +326,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.38.1</footer>
+<footer class="ver-footer">v0.39.0</footer>
 
 <script>
 'use strict';
@@ -2092,7 +2092,7 @@ async function buildNoticePdfBytes(data, assets) {
 
   form.updateFieldAppearances(font);
   pdf.catalog.getOrCreateAcroForm().dict.set(PDFName.of('NeedAppearances'), PDFBool.False);
-  return pdf.save();
+  return { bytes: await pdf.save(), pages: total };
 }
 
 function downloadBytes(bytes, filename) {
@@ -2109,8 +2109,11 @@ function generateNoticePdf(r, btn) {
   btn.disabled = true; btn.title = 'Генерация...';
   loadNoticePdfAssets().then(function (assets) {
     return buildNoticePdfBytes(gatherNoticeData(r), assets);
-  }).then(function (bytes) {
-    downloadBytes(bytes, 'Извещение ' + (r.Number || r.id) + '.pdf');
+  }).then(function (result) {
+    downloadBytes(result.bytes, 'Извещение ' + (r.Number || r.id) + '.pdf');
+    // Записываем фактическое кол-во сгенерированных листов обратно в Grist —
+    // служебное поле, в таблицу виджета не выводится (не запрашивалось).
+    grist.selectedTable.update({ id: r.id, fields: { NumberOfNoticePages: result.pages } }).catch(function () {});
   }).catch(function (err) {
     showError(err);
   }).then(function () {

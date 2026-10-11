@@ -326,7 +326,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:13px;col
   <div class="conn-dot" id="connDot"></div>
   <span class="conn-lbl" id="connLbl">Ожидание Grist…</span>
 </div>
-<footer class="ver-footer">v0.39.0</footer>
+<footer class="ver-footer">v0.40.0</footer>
 
 <script>
 'use strict';
@@ -1344,7 +1344,16 @@ function renderRegistry() {
   // started directly in the Grist grid, never filled via "Зарегистрировать")
   // — nothing to show for them, and with no IssueDate they'd sort to the very
   // bottom of the list and only be hidden by a year filter, never by "Все".
-  var allRecords = state.records.filter(function (r) { return r.Number; });
+  //
+  // The opposite case: rows that have only a Number and nothing else — added
+  // to close historical gaps in the numbering (so computeNextNumber() doesn't
+  // reissue an already-used number) without a real notice behind them. Those
+  // stay in state.records for the counter but are hidden from the list too.
+  var allRecords = state.records.filter(function (r) {
+    if (!r.Number) return false;
+    var isGapFiller = !r.Product && !r.ChangeReason && !r.DocumentDesignations;
+    return !isGapFiller;
+  });
   regCount.textContent = allRecords.length;
   var q = (regFilterInput.value || '').trim().toLowerCase();
   var rows = allRecords.slice().sort(function (a, b) {
